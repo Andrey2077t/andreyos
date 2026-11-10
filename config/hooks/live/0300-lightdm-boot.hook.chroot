@@ -7,8 +7,6 @@ cat > /etc/lightdm/lightdm.conf.d/50-andrey.conf <<'EOF'
 [Seat:*]
 greeter-session=lightdm-gtk-greeter
 user-session=mate
-autologin-user=andrey
-autologin-user-timeout=0
 EOF
 
 cat > /etc/lightdm/lightdm-gtk-greeter.conf <<'EOF'
