@@ -1,1 +1,51 @@
+-- Painel "SISTEMA / CPU / MEMÓRIA / DISCO / REDE" do Andrey OS (valores reais)
+conky.config = {
+    alignment = 'top_right',
+    gap_x = 28,
+    gap_y = 68,
+    minimum_width = 192,
+    maximum_width = 192,
+    own_window = true,
+    own_window_type = 'desktop',
+    own_window_transparent = false,
+    own_window_argb_visual = true,
+    own_window_argb_value = 200,
+    own_window_colour = '080203',
+    own_window_hints = 'undecorated,below,sticky,skip_taskbar,skip_pager',
+    double_buffer = true,
+    update_interval = 1,
+    use_xft = true,
+    font = 'Inter:size=9',
+    default_color = 'EDEDF0',
+    color1 = 'ED1226',
+    draw_borders = false,
+    draw_shades = false,
+    border_inner_margin = 12,
+    border_outer_margin = 0,
+    default_graph_height = 22,
+    net_avg_samples = 2,
+    override_utf8_locale = true,
+}
 
+conky.text = [[
+${color1}${font Inter:bold:size=10}SISTEMA${font}${color}
+Kernel:  ${alignr}${kernel}
+Uptime:  ${alignr}${uptime_short}
+Packages:  ${alignr}${execi 600 dpkg-query -f '.\n' -W | wc -l}
+Shell:  ${alignr}${execi 3600 bash --version | head -1 | awk '{print "bash " $4}' | cut -d'(' -f1}
+${color1}${hr 1}${color}
+${color1}${font Inter:bold:size=10}CPU${font}${color}
+Uso: ${cpu}%
+${color1}${cpugraph 22,192 ED1226 5A0610}${color}
+${color1}${font Inter:bold:size=10}MEMÓRIA${font}${color}
+Uso: ${memperc}%
+${color1}${memgraph 22,192 ED1226 5A0610}${color}
+${color1}${font Inter:bold:size=10}DISCO${font}${color}
+Uso: ${fs_used_perc /}%
+${color1}${diskiograph 22,192 ED1226 5A0610}${color}
+${color1}${hr 1}${color}
+${color1}${font Inter:bold:size=10}REDE${font}${color}
+Download: ${alignr}${downspeed}
+Upload: ${alignr}${upspeed}
+${color1}${downspeedgraph 22,192 ED1226 5A0610}${color}
+]]
