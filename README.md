@@ -35,7 +35,25 @@ sudo ./build.sh
 
 Testar: `qemu-system-x86_64 -m 4G -enable-kvm -cdrom andrey-os-amd64.hybrid.iso`
 
-Usuário live: `andrey` / senha `live` (padrão do live-config).
+## Contas (como funciona)
+
+**Não existe conta pronta.** Nem na sessão live, nem no sistema instalado.
+
+- **Sessão live**: o `live-config` está com `user-setup`, `sudo` e `lightdm` desligados (`nocomponents=` em `auto/config`). Antes do login gráfico, o serviço `andrey-firstboot` abre um assistente (tela de texto, `tty8`) onde a pessoa escolhe **o próprio usuário e a própria senha, sem regras**. Ele cria o usuário, entra no grupo `sudo` e faz autologin **só nessa sessão**. Se sair da sessão, entra de novo com a senha que ela mesma criou.
+- **Cancelar** no assistente oferece (opcional) uma conta temporária `andrey` / `live`, só dessa sessão. Nunca trava o boot: se o assistente falhar, cai nessa conta temporária.
+- **Sistema instalado**: tudo isso vive na RAM da sessão live, então não vai pro disco. No instalador (Calamares) a pessoa cria a conta definitiva.
+- Boot com `andrey.temp` na linha de comando do kernel **pula o assistente** (útil pra testar em VM sem digitar).
+- O hook `0300` **derruba o build** se faltar `whiptail`, `kbd`, `passwd`, `lightdm`, `live-config`, `sudo` ou o serviço do assistente.
+
+### Se algo der errado no login live
+
+Pelo GRUB, edite a linha do kernel e adicione `andrey.temp`; depois:
+
+```bash
+systemctl status andrey-firstboot
+journalctl -b -u andrey-firstboot -u live-config | tail -60
+tail -40 /var/log/lightdm/lightdm.log
+```
 
 ## Próximos passos
 

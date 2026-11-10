@@ -1,0 +1,24 @@
+[Unit]
+Description=Andrey OS - criar conta (primeiro boot da sessao live)
+ConditionKernelCommandLine=boot=live
+ConditionPathExists=!/run/andrey-firstboot.done
+After=live-config.service console-setup.service plymouth-start.service
+Before=display-manager.service lightdm.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=-/usr/bin/setupcon
+ExecStartPre=-/usr/bin/chvt 8
+ExecStart=/usr/local/sbin/andrey-firstboot
+ExecStartPost=-/usr/bin/chvt 7
+StandardInput=tty-force
+StandardOutput=tty
+StandardError=journal
+TTYPath=/dev/tty8
+TTYReset=yes
+TTYVHangup=yes
+TimeoutStartSec=infinity
+
+[Install]
+WantedBy=multi-user.target

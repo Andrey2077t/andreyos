@@ -16,7 +16,7 @@ lb config noauto \
     --iso-publisher "Andrey" \
     --iso-volume "ANDREY_OS" \
     --image-name "andrey-os" \
-    --bootappend-live "boot=live components quiet splash locales=pt_BR.UTF-8 keyboard-layouts=br timezone=America/Sao_Paulo username=andrey hostname=andrey-os" \
+    --bootappend-live "boot=live quiet splash locales=pt_BR.UTF-8 keyboard-layouts=br timezone=America/Sao_Paulo hostname=andrey-os nocomponents=user-setup,sudo,lightdm" \
     --apt-recommends false \
     --memtest none \
     "${@}"

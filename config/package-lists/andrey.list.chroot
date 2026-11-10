@@ -40,6 +40,16 @@ mate-power-manager
 calamares
 calamares-settings-debian
 
+# ---- Conta/login da sessão live (assistente andrey-firstboot cria a conta; nada vem pronto)
+# Com --apt-recommends false nada disso vem sozinho, então fica explícito:
+whiptail
+kbd
+passwd
+libpam-systemd
+dbus-user-session
+polkitd
+pkexec
+
 # ---- Utilitários
 sudo
 locales
