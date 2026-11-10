@@ -54,7 +54,7 @@ jobs:
           docker run --rm --privileged \
             -v "$PWD":/work -w /work \
             -e DEBIAN_FRONTEND=noninteractive \
-            debian:trixie bash -c "apt-get update && apt-get install -y sudo && bash ./build.sh""
+            debian:trixie bash -c "apt-get update && apt-get install -y sudo && bash ./build.sh"
 
       - name: Mostrar resultado
         if: always()
