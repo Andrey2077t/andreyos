@@ -1,0 +1,55 @@
+# ---- Desktop (MATE: mesmo layout de barra superior Aplicativos/Locais/Sistema)
+mate-desktop-environment-core
+mate-desktop-environment-extras
+mate-tweak
+lightdm
+lightdm-gtk-greeter
+dbus-x11
+xorg
+xserver-xorg-input-all
+
+# ---- Aplicativos do dock
+firefox-esr
+firefox-esr-l10n-pt-br
+mate-terminal
+caja
+mate-system-monitor
+mate-control-center
+mate-menu
+
+# ---- Painel de sistema (réplica do widget da direita)
+conky-all
+
+# ---- Visual
+fonts-inter
+fonts-noto-core
+adwaita-icon-theme
+gnome-themes-extra
+gnome-themes-extra-data
+plymouth
+plymouth-themes
+
+# ---- Rede, som, energia
+network-manager
+network-manager-gnome
+pulseaudio
+pavucontrol
+mate-power-manager
+
+# ---- Instalador gráfico
+calamares
+calamares-settings-debian
+
+# ---- Utilitários
+sudo
+locales
+console-setup
+keyboard-configuration
+live-boot
+live-config
+live-config-systemd
+bash-completion
+git
+curl
+nano
+htop

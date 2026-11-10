@@ -1,0 +1,30 @@
+#!/bin/sh
+# Tela de login (LightDM) e splash de boot
+set -e
+
+mkdir -p /etc/lightdm/lightdm.conf.d
+cat > /etc/lightdm/lightdm.conf.d/50-andrey.conf <<'EOF'
+[Seat:*]
+greeter-session=lightdm-gtk-greeter
+user-session=mate
+autologin-user=andrey
+autologin-user-timeout=0
+EOF
+
+cat > /etc/lightdm/lightdm-gtk-greeter.conf <<'EOF'
+[greeter]
+background=/usr/share/backgrounds/andrey/andrey-os.png
+theme-name=Adwaita-dark
+icon-theme-name=Adwaita
+font-name=Inter 11
+indicators=~host;~spacer;~clock;~spacer;~session;~a11y;~power
+clock-format=%a, %d de %b  %H:%M
+EOF
+
+# Plymouth: tema "spinner" com o logo do Andrey OS
+if [ -d /usr/share/plymouth/themes/spinner ]; then
+    plymouth-set-default-theme -R spinner || true
+fi
+
+# Garante o grupo/usuário live (live-config já cria, isto só ajusta o shell)
+update-alternatives --set x-session-manager /usr/bin/mate-session 2>/dev/null || true
