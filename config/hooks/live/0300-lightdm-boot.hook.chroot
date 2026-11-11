@@ -1,0 +1,49 @@
+#!/bin/sh
+# Tela de login (LightDM), splash de boot e assistente de criação de conta (sessão live)
+set -e
+
+mkdir -p /etc/lightdm/lightdm.conf.d
+cat > /etc/lightdm/lightdm.conf.d/50-andrey.conf <<'EOT'
+[Seat:*]
+greeter-session=lightdm-gtk-greeter
+user-session=mate
+EOT
+
+cat > /etc/lightdm/lightdm-gtk-greeter.conf <<'EOT'
+[greeter]
+background=/usr/share/backgrounds/andrey/andrey-os.png
+theme-name=Adwaita-dark
+icon-theme-name=Adwaita
+font-name=Inter 11
+indicators=~host;~spacer;~clock;~spacer;~session;~a11y;~power
+clock-format=%a, %d de %b  %H:%M
+EOT
+
+# Dicionario do cracklib (libpwquality, usado pelo instalador na tela "Usuarios")
+update-cracklib >/dev/null 2>&1 || true
+ls /var/cache/cracklib/cracklib_dict.* >/dev/null 2>&1 || echo "AVISO: dicionario do cracklib nao foi gerado" >&2
+
+# (Plymouth e branding do Calamares agora sao aplicados pelo postinst do pacote andrey-os-base)
+
+update-alternatives --set x-session-manager /usr/bin/mate-session 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
+# Conta: NÃO existe usuário pronto. O live-config tem user-setup/sudo/lightdm
+# desligados (nocomponents= em auto/config) e quem cria a conta é o serviço
+# andrey-firstboot, que pergunta usuário/senha antes do login gráfico.
+# ---------------------------------------------------------------------------
+chmod 755 /usr/local/sbin/andrey-firstboot
+systemctl enable andrey-firstboot.service
+
+# TRAVAS DE BUILD: melhor quebrar aqui do que entregar uma ISO em que ninguém consegue entrar.
+for pkg in whiptail kbd passwd lightdm live-config live-config-systemd sudo mate-panel mate-applets fdisk gdisk parted dosfstools e2fsprogs rsync squashfs-tools; do
+    if ! dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q 'install ok installed'; then
+        echo "ERRO: pacote '$pkg' ausente na imagem (o assistente de conta depende dele)." >&2
+        exit 1
+    fi
+done
+for f in /usr/local/sbin/andrey-firstboot /etc/systemd/system/andrey-firstboot.service; do
+    [ -f "$f" ] || { echo "ERRO: $f ausente (config/includes.chroot)." >&2; exit 1; }
+done
+[ -L /etc/systemd/system/multi-user.target.wants/andrey-firstboot.service ] || {
+    echo "ERRO: andrey-firstboot.service nao foi habilitado." >&2; exit 1; }
