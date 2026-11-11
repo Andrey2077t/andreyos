@@ -1,0 +1,6 @@
+[Desktop Entry]
+Type=Application
+Name=Conky (Andrey OS)
+Exec=sh -c "sleep 4 && conky -d"
+X-MATE-Autostart-enabled=true
+NoDisplay=true

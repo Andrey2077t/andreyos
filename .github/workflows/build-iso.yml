@@ -1,0 +1,73 @@
+name: Build Andrey OS ISO
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ["v*"]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Corrigir estrutura de pastas
+        run: |
+          set -e
+          N=config/includes.chroot/config/includes.chroot
+          if [ -d "$N" ]; then
+            cp -a "$N/." config/includes.chroot/
+            rm -rf config/includes.chroot/config
+          fi
+          S=config/includes.chroot/etc/skel
+          echo "--- estrutura final de skel ---"
+          find config/includes.chroot/etc -type f
+          test -f "$S/.conkyrc" || { echo "ERRO: .conkyrc não encontrado em $S"; exit 1; }
+
+      - name: Liberar espaço em disco
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h /
+
+      - name: Construir a ISO (Debian trixie, privilegiado)
+        run: |
+          docker run --rm --privileged \
+            -v "$PWD":/work -w /work \
+            -e DEBIAN_FRONTEND=noninteractive \
+            debian:trixie bash -c "apt-get update && apt-get install -y sudo && bash ./build.sh"
+
+      - name: Mostrar resultado
+        if: always()
+        run: |
+          ls -lh *.iso || true
+          tail -n 50 build.log || true
+
+      - name: Gerar checksum
+        run: sha256sum *.iso > SHA256SUMS
+
+      - name: Publicar ISO como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: andrey-os-iso
+          path: |
+            *.iso
+            SHA256SUMS
+          compression-level: 0
+          retention-days: 14
+
+      - name: Publicar log de build (se falhar)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+
+      - name: Anexar ISO à release (quando for tag)
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            *.iso
+            SHA256SUMS
