@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Sincronizar configuração do Andrey OS
+Exec=/usr/lib/andrey-os/user-sync
+Terminal=false
+NoDisplay=true
+X-MATE-Autostart-enabled=true

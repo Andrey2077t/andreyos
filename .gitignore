@@ -1,0 +1,10 @@
+*.iso
+build.log
+out/
+chroot/
+binary/
+cache/
+.build/
+config/includes.chroot/usr/share/andrey-os/pkg/
+pkg/keyring/*.secret
+__pycache__/

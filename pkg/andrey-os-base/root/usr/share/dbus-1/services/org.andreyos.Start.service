@@ -1,0 +1,3 @@
+[D-BUS Service]
+Name=org.andreyos.Start
+Exec=/usr/bin/andrey-start --daemon

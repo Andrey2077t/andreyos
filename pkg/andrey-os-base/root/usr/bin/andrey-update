@@ -1,0 +1,63 @@
+#!/bin/bash
+# Atualizador do Andrey OS.
+#   andrey-update           -> verifica e mostra o resultado (manual)
+#   andrey-update --check   -> silencioso: so abre a janela se houver versao nova
+PKG=andrey-os-base
+TITLE="Atualização do Andrey OS"
+quiet=0; [ "${1:-}" = "--check" ] && quiet=1
+
+msg() { [ "$quiet" = 1 ] && return 0; zenity --info --no-markup --title="$TITLE" --width=420 --text="$1" 2>/dev/null || true; }
+
+BASE=$(cat /usr/share/andrey-os/update-url 2>/dev/null || true)
+[ -n "$BASE" ] || { msg "Endereço de atualização não configurado."; exit 0; }
+
+if grep -qw 'boot=live' /proc/cmdline 2>/dev/null; then
+    msg "Você está numa sessão live. Atualizações valem para o sistema instalado; para testar uma versão nova, use a ISO mais recente."
+    exit 0
+fi
+
+installed=$(dpkg-query -W -f='${Version}' "$PKG" 2>/dev/null || true)
+[ -n "$installed" ] || { msg "Pacote $PKG não está instalado."; exit 0; }
+
+json=$(curl -fsSL --max-time 20 "$BASE/latest.json" 2>/dev/null) || { msg "Não consegui verificar atualizações (sem internet?)."; exit 0; }
+latest=$(printf '%s' "$json" | jq -r '.version // empty' 2>/dev/null)
+previous=$(printf '%s' "$json" | jq -r '.previous // empty' 2>/dev/null)
+notes=$(printf '%s' "$json" | jq -r '.notes // empty' 2>/dev/null)
+[ -n "$latest" ] || { msg "Resposta de atualização inválida."; exit 0; }
+
+if ! dpkg --compare-versions "$latest" gt "$installed"; then
+    msg "Seu Andrey OS está na versão $installed, a mais recente."
+    exit 0
+fi
+
+text="Versão instalada: $installed
+Nova versão: $latest"
+[ -n "$previous" ] && text="$text
+(versão anterior publicada: $previous)"
+[ -n "$notes" ] && text="$text
+
+Novidades:
+$notes"
+
+zenity --question --no-markup --title="$TITLE" --width=460 \
+    --ok-label="Atualizar" --cancel-label="Agora não" --text="$text" 2>/dev/null || exit 0
+
+LOG=$(mktemp)
+pkexec /usr/lib/andrey-os/apply-update >"$LOG" 2>&1 &
+pid=$!
+( echo "# Baixando e instalando a versão $latest..."
+  while kill -0 "$pid" 2>/dev/null; do sleep 1; done
+  echo 100 ) | zenity --progress --pulsate --auto-close --no-cancel --title="$TITLE" --width=380 2>/dev/null || true
+if wait "$pid"; then
+    now=$(dpkg-query -W -f='${Version}' "$PKG" 2>/dev/null || echo "$latest")
+    zenity --info --no-markup --title="$TITLE" --width=420 \
+        --text="Atualizado: $installed → $now
+
+Painéis, ícones e tema podem só aparecer por completo depois de sair da sessão e entrar de novo." 2>/dev/null || true
+else
+    zenity --error --no-markup --title="$TITLE" --width=460 \
+        --text="A atualização falhou.
+
+$(tail -n 6 "$LOG")" 2>/dev/null || true
+fi
+rm -f "$LOG"
