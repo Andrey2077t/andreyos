@@ -1,0 +1,205 @@
+#!/bin/sh
+# Padrões do desktop (MATE): gschema override, tema de ícones Andrey e layout dos painéis
+#   - barra superior (Aplicativos / Locais / Sistema, relógio, bandeja)
+#   - dock lateral esquerdo (vertical, centralizado)
+#   - dock inferior (centralizado, com lixeira)
+set -e
+
+# ---------------------------------------------------------------------------
+# Ícones: copia os ícones "andrey-*" também para o hicolor (qualquer tema os encontra)
+# ---------------------------------------------------------------------------
+mkdir -p /usr/share/icons/hicolor/scalable/apps
+cp -f /usr/share/icons/Andrey/scalable/apps/andrey-*.svg /usr/share/icons/hicolor/scalable/apps/ 2>/dev/null || true
+gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
+gtk-update-icon-cache -f -t /usr/share/icons/Andrey 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
+# Padrões do MATE
+# ---------------------------------------------------------------------------
+cat > /usr/share/glib-2.0/schemas/90_andrey-os.gschema.override <<'EOF'
+[org.mate.background]
+picture-filename='/usr/share/backgrounds/andrey/andrey-os.png'
+picture-options='zoom'
+primary-color='#030002'
+
+[org.mate.interface]
+gtk-theme='Adwaita-dark'
+icon-theme='Andrey'
+font-name='Inter 10'
+document-font-name='Inter 10'
+
+[org.mate.Marco.general]
+theme='Adwaita-dark'
+titlebar-font='Inter Bold 10'
+compositing-manager=true
+
+[org.mate.panel]
+default-layout='andrey'
+
+[org.mate.panel.applet.clock]
+format='custom'
+custom-format='%a, %d de %b  •  %H:%M'
+EOF
+glib-compile-schemas /usr/share/glib-2.0/schemas/
+
+# ---------------------------------------------------------------------------
+# Layout dos painéis
+# Observações de sintaxe (mate-panel):
+#   - posição dos objetos em pixels (position=) a partir do início do painel;
+#     panel-right-stick=true conta a partir do fim (direita);
+#   - y-bottom / x são números (margem em px), não booleanos;
+#   - objetos "menu" e "action" ficam no fim do arquivo de propósito: se alguma
+#     versão do mate-panel rejeitar um deles, o resto do layout continua válido.
+# ---------------------------------------------------------------------------
+mkdir -p /usr/share/mate-panel/layouts
+L=/usr/share/mate-panel/layouts/andrey.layout
+
+cat > "$L" <<'EOF'
+# ===================== barra superior =====================
+[Toplevel top]
+expand=true
+orientation=top
+size=32
+
+[Object menu-bar]
+object-type=menu-bar
+toplevel-id=top
+position=0
+locked=true
+
+[Object clock]
+object-type=applet
+applet-iid=ClockAppletFactory::ClockApplet
+toplevel-id=top
+position=0
+panel-right-stick=true
+
+[Object notification-area]
+object-type=applet
+applet-iid=NotificationAreaAppletFactory::NotificationArea
+toplevel-id=top
+position=190
+panel-right-stick=true
+
+# ===================== dock lateral esquerdo =====================
+[Toplevel left]
+expand=false
+orientation=left
+size=56
+x=8
+y-centered=true
+
+[Object left-files]
+object-type=launcher
+launcher-location=andrey-files.desktop
+toplevel-id=left
+position=56
+
+[Object left-browser]
+object-type=launcher
+launcher-location=firefox-esr.desktop
+toplevel-id=left
+position=112
+
+[Object left-terminal]
+object-type=launcher
+launcher-location=andrey-terminal.desktop
+toplevel-id=left
+position=168
+
+[Object left-monitor]
+object-type=launcher
+launcher-location=andrey-monitor.desktop
+toplevel-id=left
+position=224
+
+[Object left-settings]
+object-type=launcher
+launcher-location=andrey-settings.desktop
+toplevel-id=left
+position=280
+
+[Object left-separator]
+object-type=separator
+toplevel-id=left
+position=336
+
+# ===================== dock inferior =====================
+[Toplevel bottom]
+expand=false
+orientation=bottom
+size=56
+x-centered=true
+y-bottom=10
+
+[Object bottom-browser]
+object-type=launcher
+launcher-location=firefox-esr.desktop
+toplevel-id=bottom
+position=56
+
+[Object bottom-terminal]
+object-type=launcher
+launcher-location=andrey-terminal.desktop
+toplevel-id=bottom
+position=112
+
+[Object bottom-files]
+object-type=launcher
+launcher-location=andrey-files.desktop
+toplevel-id=bottom
+position=168
+
+[Object bottom-settings]
+object-type=launcher
+launcher-location=andrey-settings.desktop
+toplevel-id=bottom
+position=224
+
+[Object bottom-separator]
+object-type=separator
+toplevel-id=bottom
+position=280
+
+# ===================== objetos "menu" e "action" (por último) =====================
+[Object left-grid]
+object-type=menu
+toplevel-id=left
+position=0
+tooltip=Aplicativos
+use-custom-icon=true
+custom-icon=andrey-grid
+use-menu-path=true
+menu-path=applications:///
+
+[Object left-power]
+object-type=action
+action-type=shutdown
+toplevel-id=left
+position=348
+
+[Object bottom-grid]
+object-type=menu
+toplevel-id=bottom
+position=0
+tooltip=Aplicativos
+use-custom-icon=true
+custom-icon=andrey-grid
+use-menu-path=true
+menu-path=applications:///
+EOF
+
+# Lixeira: so entra no layout se o applet estiver instalado
+# (evita o erro "O painel encontrou um problema ao carregar TrashApplet")
+if ls /usr/share/mate-panel/applets/ 2>/dev/null | grep -qi trash; then
+cat >> "$L" <<'EOF'
+
+[Object bottom-trash]
+object-type=applet
+applet-iid=TrashAppletFactory::TrashApplet
+toplevel-id=bottom
+position=296
+EOF
+else
+    echo "AVISO: applet da lixeira ausente; layout sem lixeira" >&2
+fi

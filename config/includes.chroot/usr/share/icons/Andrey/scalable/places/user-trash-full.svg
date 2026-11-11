@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="48" height="48" viewBox="0 0 48 48">
+<defs>
+<linearGradient id="linear-pattern-0" gradientUnits="userSpaceOnUse" x1="0" y1="8" x2="0" y2="40">
+<stop offset="0" stop-color="rgb(95%, 15%, 20%)" stop-opacity="1"/>
+<stop offset="1" stop-color="rgb(65%, 4%, 10%)" stop-opacity="1"/>
+</linearGradient>
+<linearGradient id="linear-pattern-1" gradientUnits="userSpaceOnUse" x1="0" y1="8" x2="0" y2="40">
+<stop offset="0" stop-color="rgb(95%, 15%, 20%)" stop-opacity="1"/>
+<stop offset="1" stop-color="rgb(65%, 4%, 10%)" stop-opacity="1"/>
+</linearGradient>
+<linearGradient id="linear-pattern-2" gradientUnits="userSpaceOnUse" x1="0" y1="8" x2="0" y2="40">
+<stop offset="0" stop-color="rgb(95%, 15%, 20%)" stop-opacity="1"/>
+<stop offset="1" stop-color="rgb(65%, 4%, 10%)" stop-opacity="1"/>
+</linearGradient>
+</defs>
+<path fill-rule="nonzero" fill="url(#linear-pattern-0)" d="M 37 11 C 38.105469 11 39 11.894531 39 13 L 39 14 C 39 15.105469 38.105469 16 37 16 L 11 16 C 9.894531 16 9 15.105469 9 14 L 9 13 C 9 11.894531 9.894531 11 11 11 Z M 37 11 "/>
+<path fill-rule="nonzero" fill="url(#linear-pattern-1)" d="M 27 7 C 28.105469 7 29 7.894531 29 9 L 29 10 C 29 11.105469 28.105469 12 27 12 L 21 12 C 19.894531 12 19 11.105469 19 10 L 19 9 C 19 7.894531 19.894531 7 21 7 Z M 27 7 "/>
+<path fill-rule="nonzero" fill="url(#linear-pattern-2)" d="M 12 18 L 36 18 L 34 40 C 34 41 33 42 32 42 L 16 42 C 15 42 14 41 14 40 Z M 12 18 "/>
+<path fill="none" stroke-width="1.8" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(3%, 1%, 2%)" stroke-opacity="1" stroke-miterlimit="10" d="M 19 24 L 19.398438 36 "/>
+<path fill="none" stroke-width="1.8" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(3%, 1%, 2%)" stroke-opacity="1" stroke-miterlimit="10" d="M 24 24 L 24 36 "/>
+<path fill="none" stroke-width="1.8" stroke-linecap="butt" stroke-linejoin="miter" stroke="rgb(3%, 1%, 2%)" stroke-opacity="1" stroke-miterlimit="10" d="M 29 24 L 28.601562 36 "/>
+</svg>

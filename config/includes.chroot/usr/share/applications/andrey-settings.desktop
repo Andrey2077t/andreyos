@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Configurações
+Exec=mate-control-center
+Icon=andrey-settings
+Terminal=false
+NoDisplay=true
+Categories=Utility;

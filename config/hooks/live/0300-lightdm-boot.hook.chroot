@@ -1,0 +1,69 @@
+#!/bin/sh
+# Tela de login (LightDM), splash de boot e assistente de criação de conta (sessão live)
+set -e
+
+mkdir -p /etc/lightdm/lightdm.conf.d
+cat > /etc/lightdm/lightdm.conf.d/50-andrey.conf <<'EOT'
+[Seat:*]
+greeter-session=lightdm-gtk-greeter
+user-session=mate
+EOT
+
+cat > /etc/lightdm/lightdm-gtk-greeter.conf <<'EOT'
+[greeter]
+background=/usr/share/backgrounds/andrey/andrey-os.png
+theme-name=Adwaita-dark
+icon-theme-name=Adwaita
+font-name=Inter 11
+indicators=~host;~spacer;~clock;~spacer;~session;~a11y;~power
+clock-format=%a, %d de %b  %H:%M
+EOT
+
+# Plymouth: tema "andrey" (papel de parede + barra de progresso vermelha); cai no spinner se faltar
+if [ -f /usr/share/plymouth/themes/andrey/andrey.plymouth ]; then
+    plymouth-set-default-theme -R andrey || true
+elif [ -d /usr/share/plymouth/themes/spinner ]; then
+    plymouth-set-default-theme -R spinner || true
+fi
+
+# Calamares: troca nome, cores e logo do branding existente (sem criar branding novo,
+# para nao arriscar quebrar o instalador). Tudo e opcional: se algo nao existir, ignora.
+CB=$(find /etc/calamares /usr/share/calamares -maxdepth 3 -name branding.desc 2>/dev/null | head -1)
+if [ -n "$CB" ]; then
+    CD=$(dirname "$CB")
+    for k in productName shortProductName versionedName shortVersionedName bootloaderEntryName; do
+        sed -i "s|^\( *$k: *\).*|\1Andrey OS|" "$CB"
+    done
+    sed -i 's|^\( *version: *\).*|\11.0|; s|^\( *shortVersion: *\).*|\11.0|' "$CB"
+    sed -i 's|^\( *sidebarBackground: *\).*|\1"#0b0306"|; s|^\( *sidebarText: *\).*|\1"#ededf0"|; s|^\( *sidebarTextSelect: *\).*|\1"#ffffff"|; s|^\( *sidebarTextHighlight: *\).*|\1"#ed1226"|' "$CB"
+    LOGO=/usr/share/andrey-os/calamares/logo.png
+    if [ -f "$LOGO" ]; then
+        for k in productLogo productIcon; do
+            f=$(sed -n "s|^ *$k: *[\"']\{0,1\}\([^\"' ]*\)[\"']\{0,1\} *\$|\1|p" "$CB" | head -1)
+            case "$f" in *.png) cp -f "$LOGO" "$CD/$f" 2>/dev/null || true ;; esac
+        done
+    fi
+fi
+
+update-alternatives --set x-session-manager /usr/bin/mate-session 2>/dev/null || true
+
+# ---------------------------------------------------------------------------
+# Conta: NÃO existe usuário pronto. O live-config tem user-setup/sudo/lightdm
+# desligados (nocomponents= em auto/config) e quem cria a conta é o serviço
+# andrey-firstboot, que pergunta usuário/senha antes do login gráfico.
+# ---------------------------------------------------------------------------
+chmod 755 /usr/local/sbin/andrey-firstboot
+systemctl enable andrey-firstboot.service
+
+# TRAVAS DE BUILD: melhor quebrar aqui do que entregar uma ISO em que ninguém consegue entrar.
+for pkg in whiptail kbd passwd lightdm live-config live-config-systemd sudo mate-panel mate-applets; do
+    if ! dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q 'install ok installed'; then
+        echo "ERRO: pacote '$pkg' ausente na imagem (o assistente de conta depende dele)." >&2
+        exit 1
+    fi
+done
+for f in /usr/local/sbin/andrey-firstboot /etc/systemd/system/andrey-firstboot.service; do
+    [ -f "$f" ] || { echo "ERRO: $f ausente (config/includes.chroot)." >&2; exit 1; }
+done
+[ -L /etc/systemd/system/multi-user.target.wants/andrey-firstboot.service ] || {
+    echo "ERRO: andrey-firstboot.service nao foi habilitado." >&2; exit 1; }
