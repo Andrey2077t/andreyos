@@ -74,3 +74,22 @@ Description: Identidade visual e atualizador do Andrey OS
  branding do instalador, conky e o atualizador "andrey-update", que busca novas
  versoes no repositorio apt do projeto (GitHub Pages).
 
+Package: andrey-os-base
+Version: 0.0.9
+Architecture: all
+Maintainer: Andrey OS <andrey-os@localhost>
+Installed-Size: 1048
+Depends: mate-panel, mate-applets, libglib2.0-bin, curl, jq, zenity, pkexec, python3, python3-gi, gir1.2-gtk-3.0, librsvg2-common
+Recommends: plymouth
+Filename: pool/andrey-os-base_0.0.9_all.deb
+Size: 324146
+MD5sum: 4ea7e6ff8aa4b2c2ea9df348832a2568
+SHA1: 0ed837dc04c1949ded3f25c4443d7e5a0b6bc0ab
+SHA256: 08a015933062410a24447cd2610d9bd53f8a31209f20471fc6725e54c288c135
+Section: misc
+Priority: optional
+Description: Identidade visual e atualizador do Andrey OS
+ Paineis (barra superior e docks), icones vermelhos, wallpaper, tema Plymouth,
+ branding do instalador, conky e o atualizador "andrey-update", que busca novas
+ versoes no repositorio apt do projeto (GitHub Pages).
+

@@ -2,10 +2,10 @@ Origin: Andrey OS
 Label: Andrey OS
 Suite: stable
 Description: Repositorio do Andrey OS
-Date: Wed, 11 Nov 2026 08:06:58 +0000
+Date: Wed, 11 Nov 2026 19:18:43 +0000
 MD5Sum:
- 56e69f0ee66698864b958266bf443bb4 3130 Packages
- 3a7f20d6c5b20d1f9e78a497206cb2bf 914 Packages.gz
+ f6b52c05ad7771a347baac450de65f3e 3927 Packages
+ 5497e2968e6909a7f666f8ea322144d5 1030 Packages.gz
 SHA256:
- 6360715be52de12202686ef58e81c88d2cdeb6d24c7558cd93bbef5efbf92181 3130 Packages
- ed89a82d2a36088ea895036209c9cf2e4f9400ab7fcf044ec17ebf06c56620c2 914 Packages.gz
+ c2638fb8d1b8abd34dc3f91d84b7eb4f8ef27b71bddcc40c439d9689d5f27e2b 3927 Packages
+ 15e4425decc3b57037b90e74f8773a9f4d838dfc0d8a3cbd1168eaef71ce5558 1030 Packages.gz
