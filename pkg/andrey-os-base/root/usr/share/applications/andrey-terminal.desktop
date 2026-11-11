@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Terminal
+Exec=mate-terminal
+Icon=andrey-terminal
+Terminal=false
+NoDisplay=true
+Categories=Utility;

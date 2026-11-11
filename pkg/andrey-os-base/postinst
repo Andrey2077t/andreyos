@@ -1,0 +1,52 @@
+#!/bin/sh
+# Roda na instalacao e em toda atualizacao do andrey-os-base.
+set -e
+
+case "$1" in
+configure)
+    # versao do pacote -> os-release, issue, motd (sempre iguais ao que foi publicado)
+    /usr/lib/andrey-os/sync-version || true
+
+    # padroes do MATE (gschema override) e layout dos paineis
+    glib-compile-schemas /usr/share/glib-2.0/schemas 2>/dev/null || echo "andrey-os-base: aviso: glib-compile-schemas falhou" >&2
+
+    # icones "andrey-*" tambem no hicolor (qualquer tema os encontra) + caches
+    mkdir -p /usr/share/icons/hicolor/scalable/apps
+    cp -f /usr/share/icons/Andrey/scalable/apps/andrey-*.svg /usr/share/icons/hicolor/scalable/apps/ 2>/dev/null || true
+    gtk-update-icon-cache -f -t /usr/share/icons/hicolor 2>/dev/null || true
+    gtk-update-icon-cache -f -t /usr/share/icons/Andrey 2>/dev/null || true
+
+    # Plymouth: tema "andrey"
+    if command -v plymouth-set-default-theme >/dev/null 2>&1 && [ -f /usr/share/plymouth/themes/andrey/andrey.plymouth ]; then
+        plymouth-set-default-theme -R andrey 2>/dev/null || true
+    fi
+
+    # Calamares: nome, cores e logo no branding existente (idempotente; ignora se nao houver)
+    CB=$(find /etc/calamares /usr/share/calamares -maxdepth 3 -name branding.desc 2>/dev/null | head -1 || true)
+    if [ -n "$CB" ]; then
+        CD=$(dirname "$CB")
+        for k in productName shortProductName versionedName shortVersionedName bootloaderEntryName; do
+            sed -i "s|^\( *$k: *\).*|\1Andrey OS|" "$CB" || true
+        done
+        sed -i 's|^\( *version: *\).*|\11.0|; s|^\( *shortVersion: *\).*|\11.0|' "$CB" || true
+        # as chaves de estilo do Calamares comecam com maiuscula (SidebarBackground); aceita as duas
+        sed -i 's|^\( *[Ss]idebarBackground: *\).*|\1"#0b0306"|; s|^\( *[Ss]idebarText: *\).*|\1"#ededf0"|; s|^\( *[Ss]idebarTextSelect: *\).*|\1"#ffffff"|; s|^\( *[Ss]idebarTextHighlight: *\).*|\1"#ed1226"|' "$CB" || true
+        LOGO=/usr/share/andrey-os/calamares/logo.png
+        if [ -f "$LOGO" ]; then
+            for k in productLogo productIcon; do
+                f=$(sed -n "s|^ *$k: *[\"']\{0,1\}\([^\"' ]*\)[\"']\{0,1\} *\$|\1|p" "$CB" | head -1 || true)
+                case "$f" in *.png) cp -f "$LOGO" "$CD/$f" 2>/dev/null || true ;; esac
+            done
+        fi
+    fi
+
+    # Calamares: se o dicionario de senhas falhar, a pessoa pode marcar "aceitar senha fraca"
+    # (sem isso o botao Proximo fica travado). O dicionario em si vem do cracklib-runtime/wamerican.
+    CU=$(find /etc/calamares -maxdepth 3 -name users.conf 2>/dev/null | head -1 || true)
+    if [ -n "$CU" ]; then
+        sed -i 's|^\( *allowWeakPasswords: *\).*|\1true|' "$CU" || true
+    fi
+    ;;
+esac
+
+exit 0

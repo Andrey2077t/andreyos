@@ -1,0 +1,110 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""Atalhos de teclado estilo Windows do Andrey OS.
+
+  andrey-keys --apply   cria os atalhos que ainda não existem (não mexe nos seus)
+  andrey-keys --reset   recria TODOS os atalhos do Andrey OS com os valores padrão
+  andrey-keys --help    mostra a lista (Super+F1)
+
+Atalhos de janelas (Super+D, Super+setas) vêm do Marco via padrões do sistema.
+"""
+import sys
+
+import gi
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gio, Gtk  # noqa: E402
+
+SCHEMA = "org.mate.control-center.keybinding"
+BASE = "/org/mate/desktop/keybindings/"
+
+# slug, nome, atalho, comando
+CUSTOM = [
+    ("andrey-files", "Abrir Arquivos", "<Super>e", "caja --no-desktop"),
+    ("andrey-run", "Executar", "<Super>r", "mate-panel --run-dialog"),
+    ("andrey-lock", "Bloquear a tela", "<Super>l", "andrey-lock"),
+    ("andrey-clipboard", "Histórico da área de transferência", "<Super>v", "andrey-clipboard --toggle"),
+    ("andrey-snip", "Recorte de tela", "<Super><Shift>s", "andrey-screenshot --area"),
+    ("andrey-search", "Pesquisar no Menu Iniciar", "<Super>s", "andrey-start --search"),
+    ("andrey-taskmgr", "Gerenciador de tarefas", "<Control><Shift>Escape", "mate-system-monitor"),
+    ("andrey-settings", "Configurações", "<Super>i", "mate-control-center"),
+    ("andrey-keys-help", "Lista de atalhos", "<Super>F1", "andrey-keys --help"),
+    # volume: Fn+F2 / Fn+F3 / Fn+F1 enviam estas teclas na maioria dos teclados
+    ("andrey-vol-down", "Diminuir o volume", "XF86AudioLowerVolume", "andrey-volume down"),
+    ("andrey-vol-up", "Aumentar o volume", "XF86AudioRaiseVolume", "andrey-volume up"),
+    ("andrey-vol-mute", "Silenciar", "XF86AudioMute", "andrey-volume mute"),
+    # alternativa para teclados sem Fn ou com o Fn travado
+    ("andrey-vol-down2", "Diminuir o volume (alternativo)", "<Super>F2", "andrey-volume down"),
+    ("andrey-vol-up2", "Aumentar o volume (alternativo)", "<Super>F3", "andrey-volume up"),
+    ("andrey-vol-mute2", "Silenciar (alternativo)", "<Super>F4", "andrey-volume mute"),
+]
+
+# só para exibir (vêm do sistema/Marco ou de programas)
+BUILTIN = [
+    ("Super", "Abre o Menu Iniciar"),
+    ("Super+D", "Mostrar a área de trabalho"),
+    ("Super+↑ / Super+↓", "Maximizar / restaurar a janela"),
+    ("Super+← / Super+→", "Encaixar a janela na metade esquerda / direita"),
+    ("Alt+Tab", "Alternar entre janelas"),
+    ("Alt+F4", "Fechar a janela"),
+    ("Print", "Capturar a tela"),
+    ("Fn+F2 / Fn+F3 / Fn+F1", "Volume: diminuir / aumentar / silenciar (ou Super+F2 / F3 / F4)"),
+]
+
+
+def schema_ok():
+    src = Gio.SettingsSchemaSource.get_default()
+    return src is not None and src.lookup(SCHEMA, True) is not None
+
+
+def entry(slug):
+    return Gio.Settings.new_with_path(SCHEMA, BASE + slug + "/")
+
+
+def apply(force=False):
+    if not schema_ok():
+        print("andrey-keys: esquema do MATE ausente", file=sys.stderr)
+        return 1
+    for slug, name, binding, action in CUSTOM:
+        s = entry(slug)
+        if force or not s.get_string("binding"):
+            s.set_string("name", name)
+            s.set_string("action", action)
+            s.set_string("binding", binding)
+    Gio.Settings.sync()
+    return 0
+
+
+def pretty(b):
+    return (b.replace("<Super>", "Super+").replace("<Shift>", "Shift+")
+            .replace("<Control>", "Ctrl+").replace("<Alt>", "Alt+").replace("Escape", "Esc"))
+
+
+def show_help():
+    win = Gtk.Window(title="Atalhos do Andrey OS")
+    win.set_default_size(520, 560)
+    win.set_position(Gtk.WindowPosition.CENTER)
+    sc = Gtk.ScrolledWindow()
+    grid = Gtk.Grid(column_spacing=24, row_spacing=8, margin=20)
+    rows = BUILTIN + [(pretty(b), n) for _, n, b, _ in CUSTOM]
+    for i, (k, d) in enumerate(rows):
+        kl = Gtk.Label(label=k, xalign=0)
+        kl.set_markup("<b>%s</b>" % k.replace("&", "&amp;").replace("<", "&lt;"))
+        grid.attach(kl, 0, i, 1, 1)
+        grid.attach(Gtk.Label(label=d, xalign=0), 1, i, 1, 1)
+    sc.add(grid)
+    win.add(sc)
+    win.connect("destroy", Gtk.main_quit)
+    win.connect("key-press-event", lambda w, e: w.destroy() if e.keyval == 0xFF1B else None)
+    win.show_all()
+    Gtk.main()
+    return 0
+
+
+if __name__ == "__main__":
+    a = sys.argv[1] if len(sys.argv) > 1 else "--help"
+    if a == "--apply":
+        sys.exit(apply())
+    if a == "--reset":
+        sys.exit(apply(force=True))
+    sys.exit(show_help())
