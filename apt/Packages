@@ -1,0 +1,19 @@
+Package: andrey-os-base
+Version: 0.0.5
+Architecture: all
+Maintainer: Andrey OS <andrey-os@localhost>
+Installed-Size: 860
+Depends: mate-panel, mate-applets, libglib2.0-bin, curl, jq, zenity, pkexec
+Recommends: plymouth
+Filename: pool/andrey-os-base_0.0.5_all.deb
+Size: 299740
+MD5sum: 78286f16b3b1752da503b4465459c73b
+SHA1: 812e1b5933e83e5d2ad9d2a5f91ed3c5b7fb61d5
+SHA256: 1fec8de3accbdfb457fd03671f8df5b0b29a8ebc0e572241cfb637795b13b823
+Section: misc
+Priority: optional
+Description: Identidade visual e atualizador do Andrey OS
+ Paineis (barra superior e docks), icones vermelhos, wallpaper, tema Plymouth,
+ branding do instalador, conky e o atualizador "andrey-update", que busca novas
+ versoes no repositorio apt do projeto (GitHub Pages).
+
