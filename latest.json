@@ -1,6 +1,6 @@
 {
-  "version": "0.0.7",
-  "previous": "0.0.6",
-  "notes": "Aprimoramento de partições",
-  "date": "2026-11-11T07:29:23Z"
+  "version": "0.0.8",
+  "previous": "0.0.7",
+  "notes": "squashfs-tools no instalador",
+  "date": "2026-11-11T08:06:58Z"
 }
