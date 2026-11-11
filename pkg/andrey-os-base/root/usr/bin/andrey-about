@@ -1,0 +1,287 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""Sobre o Andrey OS: logo, versão instalada e versão disponível no repositório.
+
+  andrey-about            abre a janela
+  andrey-about --text     imprime o mesmo no terminal (sem janela)
+"""
+import json
+import os
+import platform
+import subprocess
+import sys
+import threading
+import urllib.request
+
+PKG = "andrey-os-base"
+UPDATE_URL_FILE = "/usr/share/andrey-os/update-url"
+LOGO = "/usr/share/icons/Andrey/scalable/apps/andrey-logo.svg"
+SLOGAN = "Supere os limites"
+
+
+# ----------------------------------------------------------------------------
+# Lógica (sem interface; é a parte coberta pelos testes)
+# ----------------------------------------------------------------------------
+def installed_version():
+    """Versão do pacote andrey-os-base (a mesma que vai para /etc/os-release)."""
+    try:
+        out = subprocess.run(["dpkg-query", "-W", "-f=${Version}", PKG],
+                             capture_output=True, text=True, timeout=10)
+        v = out.stdout.strip()
+        return v if out.returncode == 0 and v else None
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def base_url():
+    try:
+        with open(UPDATE_URL_FILE, encoding="utf-8") as f:
+            return f.read().strip().rstrip("/") or None
+    except OSError:
+        return None
+
+
+def fetch_latest(base, timeout=8):
+    """Lê <base>/latest.json. Devolve dict com version/previous/notes ou levanta exceção."""
+    req = urllib.request.Request(base + "/latest.json", headers={"User-Agent": "andrey-about"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        data = json.loads(r.read().decode("utf-8"))
+    if not isinstance(data, dict) or not data.get("version"):
+        raise ValueError("resposta inválida")
+    return data
+
+
+def is_newer(candidate, current):
+    """True se candidate > current (mesma regra do apt: dpkg --compare-versions)."""
+    if not candidate or not current:
+        return False
+    try:
+        return subprocess.run(["dpkg", "--compare-versions", candidate, "gt", current],
+                              timeout=10).returncode == 0
+    except (OSError, subprocess.SubprocessError):
+        return False
+
+
+def is_live():
+    try:
+        with open("/proc/cmdline", encoding="utf-8") as f:
+            return "boot=live" in f.read().split()
+    except OSError:
+        return False
+
+
+def debian_base():
+    try:
+        with open("/etc/debian_version", encoding="utf-8") as f:
+            v = f.read().strip()
+        major = v.split(".")[0]
+        return "Debian %s" % (major if major.isdigit() else v)
+    except OSError:
+        return "Debian"
+
+
+def describe_latest(installed, latest):
+    """(texto, status) para a linha 'Versão disponível'. status: 'novo' | 'ok' | 'erro'."""
+    if latest is None:
+        return "não foi possível verificar (sem internet?)", "erro"
+    v = latest["version"]
+    if is_newer(v, installed):
+        return "%s — atualização disponível" % v, "novo"
+    return "%s — você está na versão mais recente" % v, "ok"
+
+
+def text_report():
+    inst = installed_version() or "desconhecida"
+    lines = ["Andrey OS", SLOGAN, "",
+             "Versão instalada:  %s" % inst,
+             "Base:              %s • MATE" % debian_base(),
+             "Kernel:            %s" % platform.release()]
+    if is_live():
+        lines.append("Sessão live: atualizações valem para o sistema instalado.")
+    else:
+        base = base_url()
+        latest = None
+        if base:
+            try:
+                latest = fetch_latest(base)
+            except Exception:
+                latest = None
+        lines.append("Versão disponível: %s" % describe_latest(inst, latest)[0])
+    return "\n".join(lines)
+
+
+# ----------------------------------------------------------------------------
+# Janela (GTK3)
+# ----------------------------------------------------------------------------
+CSS = b"""
+window, .about { background-color: #0b0306; color: #ededf0; }
+.title { font-size: 26px; font-weight: 800; color: #ffffff; }
+.slogan { color: #ed1226; letter-spacing: 3px; font-weight: 700; }
+.key { color: #9a9aa3; }
+.val { color: #ededf0; font-weight: 600; }
+.novo { color: #ff5a6a; font-weight: 700; }
+.ok { color: #6fdc8c; font-weight: 700; }
+.erro { color: #ffb86b; }
+.notes { color: #c9c9d1; }
+button { background-image: none; background-color: #1a0a0e; color: #ededf0;
+         border: 1px solid #3a141b; padding: 6px 16px; }
+button:hover { border-color: #ed1226; }
+button.suggested-action { background-color: #ed1226; border-color: #ed1226; color: #ffffff; }
+"""
+
+
+def run_gui():
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk, Gdk, GdkPixbuf, GLib
+
+    inst = installed_version()
+    live = is_live()
+    base = base_url()
+
+    win = Gtk.Window(title="Sobre o Andrey OS")
+    win.set_default_size(460, -1)
+    win.set_resizable(False)
+    win.set_position(Gtk.WindowPosition.CENTER)
+    win.connect("destroy", Gtk.main_quit)
+    win.get_style_context().add_class("about")
+
+    try:
+        prov = Gtk.CssProvider()
+        prov.load_from_data(CSS)
+        Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), prov,
+                                                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+    except Exception:
+        pass  # sem o estilo vermelho, mas a janela abre normalmente
+
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+    box.set_border_width(24)
+    win.add(box)
+
+    # logo
+    try:
+        pix = GdkPixbuf.Pixbuf.new_from_file_at_size(LOGO, 112, 112)
+        img = Gtk.Image.new_from_pixbuf(pix)
+        win.set_icon(pix)
+    except Exception:
+        img = Gtk.Image.new_from_icon_name("andrey-logo", Gtk.IconSize.DIALOG)
+    box.pack_start(img, False, False, 4)
+
+    def label(text, cls=None, xalign=0.5, wrap=False):
+        lb = Gtk.Label(label=text)
+        lb.set_xalign(xalign)
+        lb.set_line_wrap(wrap)
+        lb.set_selectable(False)
+        if cls:
+            lb.get_style_context().add_class(cls)
+        return lb
+
+    box.pack_start(label("Andrey OS", "title"), False, False, 0)
+    box.pack_start(label(SLOGAN.upper(), "slogan"), False, False, 0)
+
+    grid = Gtk.Grid(column_spacing=16, row_spacing=6)
+    grid.set_margin_top(14)
+    grid.set_halign(Gtk.Align.CENTER)
+    box.pack_start(grid, False, False, 0)
+
+    def row(i, key, val, cls="val"):
+        k = label(key, "key", xalign=1.0)
+        v = label(val, cls, xalign=0.0, wrap=True)
+        grid.attach(k, 0, i, 1, 1)
+        grid.attach(v, 1, i, 1, 1)
+        return v
+
+    row(0, "Versão instalada", inst or "desconhecida")
+    avail = row(1, "Versão disponível", "verificando…", "key")
+    row(2, "Base", "%s • MATE" % debian_base())
+    row(3, "Kernel", platform.release())
+
+    notes = label("", "notes", xalign=0.0, wrap=True)
+    notes.set_margin_top(10)
+    box.pack_start(notes, False, False, 0)
+
+    btns = Gtk.Box(spacing=8)
+    btns.set_halign(Gtk.Align.CENTER)
+    btns.set_margin_top(14)
+    box.pack_start(btns, False, False, 0)
+
+    b_update = Gtk.Button(label="Atualizar agora")
+    b_update.get_style_context().add_class("suggested-action")
+    b_update.set_no_show_all(True)
+    b_check = Gtk.Button(label="Verificar de novo")
+    b_close = Gtk.Button(label="Fechar")
+    for b in (b_update, b_check, b_close):
+        btns.pack_start(b, False, False, 0)
+
+    def set_status(text, cls):
+        ctx = avail.get_style_context()
+        for c in ("key", "val", "novo", "ok", "erro"):
+            ctx.remove_class(c)
+        ctx.add_class(cls)
+        avail.set_text(text)
+
+    def apply(latest, error):
+        text, st = describe_latest(inst, None if error else latest)
+        set_status(text, {"novo": "novo", "ok": "ok", "erro": "erro"}[st])
+        if st == "novo":
+            n = (latest.get("notes") or "").strip()
+            notes.set_text(("Novidades: " + n) if n else "")
+            b_update.show()
+        else:
+            notes.set_text("")
+            b_update.hide()
+        b_check.set_sensitive(True)
+        return False
+
+    def check(_btn=None):
+        if live:
+            set_status("indisponível na sessão live (vale para o sistema instalado)", "erro")
+            return
+        if not base:
+            set_status("endereço de atualização não configurado", "erro")
+            return
+        b_check.set_sensitive(False)
+        set_status("verificando…", "key")
+
+        def work():
+            try:
+                data, err = fetch_latest(base), False
+            except Exception:
+                data, err = None, True
+            GLib.idle_add(apply, data, err)
+        threading.Thread(target=work, daemon=True).start()
+
+    def do_update(_btn):
+        try:
+            subprocess.Popen(["andrey-update"])
+        except OSError:
+            pass
+        win.destroy()
+
+    b_check.connect("clicked", check)
+    b_update.connect("clicked", do_update)
+    b_close.connect("clicked", lambda *_: win.destroy())
+
+    win.show_all()
+    b_update.hide()
+    check()
+    Gtk.main()
+
+
+def main():
+    if "--text" in sys.argv[1:]:
+        print(text_report())
+        return 0
+    if not os.environ.get("DISPLAY") and not os.environ.get("WAYLAND_DISPLAY"):
+        print(text_report())
+        return 0
+    try:
+        run_gui()
+    except (ImportError, ValueError) as e:  # GTK indisponível: cai para texto
+        print("(interface gráfica indisponível: %s)\n" % e, file=sys.stderr)
+        print(text_report())
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
