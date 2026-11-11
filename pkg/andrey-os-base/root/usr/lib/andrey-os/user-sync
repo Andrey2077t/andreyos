@@ -1,0 +1,17 @@
+#!/bin/bash
+# Roda a cada login. Aplica, uma unica vez por usuario, as migracoes de
+# /usr/lib/andrey-os/migrations/<versao>.sh mais novas que a ultima aplicada.
+# Usuarios novos ja nascem com a versao atual (vem do /etc/skel), entao nao rodam nada.
+/usr/lib/andrey-os/session-setup || true
+
+CUR=$(dpkg-query -W -f='${Version}' andrey-os-base 2>/dev/null) || exit 0
+D="$HOME/.config/andrey-os"; F="$D/applied"
+mkdir -p "$D"
+APPLIED=$(cat "$F" 2>/dev/null || echo 0)
+for m in $(ls /usr/lib/andrey-os/migrations/*.sh 2>/dev/null | sort -V); do
+    v=$(basename "$m" .sh)
+    if dpkg --compare-versions "$v" gt "$APPLIED" && dpkg --compare-versions "$v" le "$CUR"; then
+        bash "$m" || echo "andrey-os: migracao $v falhou" >&2
+    fi
+done
+echo "$CUR" > "$F"

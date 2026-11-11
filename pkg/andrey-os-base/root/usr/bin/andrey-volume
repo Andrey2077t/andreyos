@@ -1,0 +1,78 @@
+#!/bin/sh
+# Volume pelo teclado (Fn+F2 diminui, Fn+F3 aumenta, Fn+F1 muda o mudo; ou as teclas de multimídia).
+#   andrey-volume up | down | mute | get
+# Usa pactl (PulseAudio/PipeWire), wpctl ou amixer, o que existir. Mostra o volume numa notificação.
+STEP=5
+cmd="${1:-get}"
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+if ! have pactl && ! have wpctl && ! have amixer; then
+    # nenhuma ferramenta de som: oferece instalar uma vez
+    if [ ! -e "$HOME/.cache/andrey-volume-asked" ]; then
+        mkdir -p "$HOME/.cache"; : > "$HOME/.cache/andrey-volume-asked"
+        if zenity --question --no-markup --title="Volume" --width=380 \
+            --text="Falta o programa que controla o volume (pulseaudio-utils). Instalar agora?" \
+            --ok-label="Instalar" --cancel-label="Agora não" 2>/dev/null; then
+            pkexec /usr/lib/andrey-os/apt-helper install pulseaudio-utils && exec "$0" "$@"
+        fi
+    fi
+    exit 1
+fi
+
+# ---- lê o estado atual: VOL (0-100) e MUTED (0/1)
+read_state() {
+    if have pactl; then
+        VOL=$(pactl get-sink-volume @DEFAULT_SINK@ 2>/dev/null | grep -o '[0-9]\+%' | head -1 | tr -d '%')
+        pactl get-sink-mute @DEFAULT_SINK@ 2>/dev/null | grep -qi 'yes\|sim' && MUTED=1 || MUTED=0
+    elif have wpctl; then
+        VOL=$(wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | awk '{printf "%d", $2*100 + 0.5}')
+        wpctl get-volume @DEFAULT_AUDIO_SINK@ 2>/dev/null | grep -q MUTED && MUTED=1 || MUTED=0
+    else
+        VOL=$(amixer get Master 2>/dev/null | grep -o '[0-9]\+%' | head -1 | tr -d '%')
+        amixer get Master 2>/dev/null | grep -q '\[off\]' && MUTED=1 || MUTED=0
+    fi
+    VOL=${VOL:-0}
+}
+
+set_vol() {   # $1 = 0..100
+    if have pactl; then pactl set-sink-volume @DEFAULT_SINK@ "$1%"
+    elif have wpctl; then wpctl set-volume @DEFAULT_AUDIO_SINK@ "$1%"
+    else amixer -q set Master "$1%"; fi
+}
+set_mute() {  # $1 = 1 | 0 | toggle
+    case "$1" in 1) v=1;; 0) v=0;; *) v=toggle;; esac
+    if have pactl; then pactl set-sink-mute @DEFAULT_SINK@ "$v"
+    elif have wpctl; then wpctl set-mute @DEFAULT_AUDIO_SINK@ "$v"
+    else case "$v" in 1) amixer -q set Master mute;; 0) amixer -q set Master unmute;; *) amixer -q set Master toggle;; esac; fi
+}
+
+notify() {   # $1 = volume  $2 = muted
+    icon=audio-volume-high
+    [ "$1" -lt 67 ] && icon=audio-volume-medium
+    [ "$1" -lt 34 ] && icon=audio-volume-low
+    if [ "$2" = 1 ] || [ "$1" -eq 0 ]; then icon=audio-volume-muted; fi
+    body="$1%"; [ "$2" = 1 ] && body="Mudo"
+    gdbus call --session --dest org.freedesktop.Notifications \
+        --object-path /org/freedesktop/Notifications \
+        --method org.freedesktop.Notifications.Notify "Volume" 0 "$icon" "Volume" "$body" '[]' \
+        "{'value': <$1>, 'x-canonical-private-synchronous': <'andrey-volume'>}" 1200 >/dev/null 2>&1 || true
+}
+
+read_state
+case "$cmd" in
+    up)
+        V=$((VOL + STEP)); [ "$V" -gt 100 ] && V=100
+        set_mute 0; set_vol "$V" ;;
+    down)
+        V=$((VOL - STEP)); [ "$V" -lt 0 ] && V=0
+        set_mute 0; set_vol "$V" ;;
+    mute)
+        set_mute toggle ;;
+    get)
+        [ "$MUTED" = 1 ] && echo mudo || echo "$VOL%"; exit 0 ;;
+    *)
+        echo "uso: andrey-volume up|down|mute|get" >&2; exit 2 ;;
+esac
+read_state
+notify "$VOL" "$MUTED"

@@ -1,0 +1,10 @@
+Migracoes por usuario do Andrey OS
+==================================
+Arquivos /usr/lib/andrey-os/migrations/<versao>.sh (ex.: 0.0.6.sh) rodam UMA vez
+por usuario, no proximo login depois da atualizacao, se <versao> for maior que a
+ultima versao aplicada (~/.config/andrey-os/applied) e <= a versao instalada.
+
+Use para mudar coisas que vivem na HOME (o /etc/skel so vale para usuarios novos):
+  - recarregar o layout dos paineis:  mate-panel --reset --layout andrey
+  - recopiar o ~/.conkyrc ou ~/.config/gtk-3.0/gtk.css de /etc/skel
+Cada script roda como o proprio usuario; deve ser idempotente.
