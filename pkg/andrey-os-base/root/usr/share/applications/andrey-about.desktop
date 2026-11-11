@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Sobre o Andrey OS
+GenericName=Informações do sistema
+Comment=Mostra a versão instalada e a versão disponível no repositório
+Exec=andrey-about
+Icon=andrey-logo
+Terminal=false
+Categories=GTK;Settings;X-MATE-SystemSettings;
+Keywords=sobre;versão;versao;sistema;andrey;atualização;

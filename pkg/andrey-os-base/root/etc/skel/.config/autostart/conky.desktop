@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Conky (Andrey OS)
+Exec=sh -c "mkdir -p $HOME/.cache && sleep 5 && exec conky -d -c $HOME/.conkyrc >> $HOME/.cache/conky.log 2>&1"
+Terminal=false
+NoDisplay=true
+X-MATE-Autostart-enabled=true

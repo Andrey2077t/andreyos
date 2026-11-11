@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Verificar atualizações do Andrey OS
+Exec=sh -c "sleep 90 && andrey-update --check"
+Terminal=false
+NoDisplay=true
+X-MATE-Autostart-enabled=true
