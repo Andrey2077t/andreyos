@@ -1,0 +1,22 @@
+[org.mate.background]
+picture-filename='/usr/share/backgrounds/andrey/andrey-os.png'
+picture-options='zoom'
+primary-color='#030002'
+
+[org.mate.interface]
+gtk-theme='Adwaita-dark'
+icon-theme='Andrey'
+font-name='Inter 10'
+document-font-name='Inter 10'
+
+[org.mate.Marco.general]
+theme='Adwaita-dark'
+titlebar-font='Inter Bold 10'
+compositing-manager=true
+
+[org.mate.panel]
+default-layout='andrey'
+
+[org.mate.panel.applet.clock]
+format='custom'
+custom-format='%a, %d de %b  •  %H:%M'
