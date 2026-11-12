@@ -1,0 +1,25 @@
+#!/bin/sh
+# Escreve a versao do pacote andrey-os-base em /etc/os-release, /etc/issue, /etc/issue.net e /etc/motd,
+# para que "Sobre", hostnamectl, lsb e o login mostrem o MESMO numero que voce publicou.
+# Roda no postinst do pacote (instalacao e toda atualizacao) e no build da ISO (hook 0100).
+V=$(dpkg-query -W -f='${Version}' andrey-os-base 2>/dev/null || true)
+[ -n "$V" ] || exit 0
+URL=$(cat /usr/share/andrey-os/update-url 2>/dev/null || echo "")
+
+# /etc/os-release costuma ser um link para /usr/lib/os-release (do base-files); vira arquivo proprio
+[ -L /etc/os-release ] && rm -f /etc/os-release
+cat > /etc/os-release <<OSREL
+PRETTY_NAME="Andrey OS $V"
+NAME="Andrey OS"
+VERSION_ID="$V"
+VERSION="$V (Supere os limites)"
+VERSION_CODENAME=trixie
+ID=andrey-os
+ID_LIKE=debian
+HOME_URL="$URL"
+OSREL
+
+printf 'Andrey OS %s \\n \\l\n\n' "$V" > /etc/issue
+printf 'Andrey OS %s\n' "$V" > /etc/issue.net
+printf '\n  ANDREY OS %s — Velocidade • Performance • Desempenho\n\n' "$V" > /etc/motd
+exit 0

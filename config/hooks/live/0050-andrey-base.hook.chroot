@@ -1,0 +1,22 @@
+#!/bin/sh
+# Instala o pacote andrey-os-base (visual, paineis, icones, atualizador) embutido na ISO.
+# Roda antes dos outros hooks, quando todos os pacotes das listas ja foram instalados.
+set -e
+
+DEB=$(ls /usr/share/andrey-os/pkg/andrey-os-base_*_all.deb 2>/dev/null | sort -V | tail -1 || true)
+[ -n "$DEB" ] || { echo "ERRO: andrey-os-base_*.deb ausente em /usr/share/andrey-os/pkg" >&2; exit 1; }
+
+DEBIAN_FRONTEND=noninteractive dpkg -i "$DEB" || {
+    echo "dpkg -i falhou; tentando corrigir dependencias" >&2
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -f
+}
+
+dpkg-query -W -f='${Status}' andrey-os-base 2>/dev/null | grep -q 'install ok installed' || {
+    echo "ERRO: andrey-os-base nao ficou instalado." >&2; exit 1; }
+for f in /usr/share/mate-panel/layouts/andrey.layout /usr/share/icons/Andrey/index.theme \
+         /usr/share/backgrounds/andrey/andrey-os.png /usr/bin/andrey-update; do
+    [ -e "$f" ] || { echo "ERRO: $f ausente depois de instalar o andrey-os-base." >&2; exit 1; }
+done
+
+# o .deb nao precisa ficar dentro do sistema final
+rm -rf /usr/share/andrey-os/pkg

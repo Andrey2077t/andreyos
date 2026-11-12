@@ -1,0 +1,43 @@
+#!/bin/bash
+# Roda a cada login (pelo user-sync). Cada passo tem um "nivel"; so roda o que ainda nao foi aplicado
+# para esta pessoa, entao funciona tanto para usuarios novos quanto para quem ja usava o sistema.
+# Nao sobrescreve o que a pessoa personalizou depois.
+LEVEL=4
+# a cada login (barato): religa a tecla Super se estiver sem modificador e remove atalho "solto" que
+# engole teclas como E, L, R... (o teste completo, que olha o X, roda depois: andrey-keyheal.desktop)
+andrey-keys --sanitize 2>/dev/null || true
+D="$HOME/.config/andrey-os"; F="$D/setup-level"
+mkdir -p "$D"
+DONE=$(cat "$F" 2>/dev/null || echo 0)
+[ "$DONE" -ge "$LEVEL" ] 2>/dev/null && exit 0
+
+# 1) atalhos estilo Windows (Super+E, Super+R, Super+L, Super+V, Super+Shift+S...)
+#    (nivel 4: --repair conserta a Super no X, recria tudo e so cria os atalhos com Super se ela funcionar)
+andrey-keys --repair || true
+
+# 2) "Novo documento" no botao direito do Caja (pasta Modelos)
+TPL=$(xdg-user-dir TEMPLATES 2>/dev/null || true)
+{ [ -z "$TPL" ] || [ "$TPL" = "$HOME" ]; } && TPL="$HOME/Modelos"
+mkdir -p "$TPL"
+[ -e "$TPL/Documento de texto.txt" ] || : > "$TPL/Documento de texto.txt"
+[ -e "$TPL/Planilha.csv" ]           || : > "$TPL/Planilha.csv"
+[ -e "$TPL/Pagina web.html" ]        || printf '<!doctype html>\n<meta charset="utf-8">\n<title></title>\n' > "$TPL/Pagina web.html"
+[ -e "$TPL/Script.sh" ]              || printf '#!/bin/bash\n' > "$TPL/Script.sh"
+
+# 3) arquivos .deb abrem na Loja de Aplicativos (instalar com duplo clique)
+gio mime application/vnd.debian.binary-package andrey-store.desktop >/dev/null 2>&1 || true
+
+# 4) paineis novos (lista de janelas, mostrar area de trabalho, grade abre o Menu Iniciar):
+#    usuarios que ja existiam tem o layout antigo salvo; recarrega UMA vez.
+#    Usuarios novos ja nascem com o marcador (vem do /etc/skel).
+if [ ! -e "$D/panel-layout" ]; then
+    echo 2 > "$D/panel-layout"
+    if pgrep -x mate-panel >/dev/null 2>&1; then
+        sleep 4
+        dconf reset -f /org/mate/panel/ 2>/dev/null || true
+        sleep 1
+        killall mate-panel 2>/dev/null || true   # o mate-session reinicia com o layout "andrey"
+    fi
+fi
+
+echo "$LEVEL" > "$F"

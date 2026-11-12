@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Recorte de tela
+Comment=Seleciona uma região da tela e copia (Super+Shift+S)
+Exec=andrey-screenshot --area
+Icon=applets-screenshooter
+Terminal=false
+Categories=Utility;
+Keywords=captura;print;screenshot;recorte;
