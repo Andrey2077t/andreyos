@@ -1,23 +1,4 @@
 Package: andrey-os-base
-Version: 0.0.7
-Architecture: all
-Maintainer: Andrey OS <andrey-os@localhost>
-Installed-Size: 884
-Depends: mate-panel, mate-applets, libglib2.0-bin, curl, jq, zenity, pkexec, python3, python3-gi, gir1.2-gtk-3.0, librsvg2-common
-Recommends: plymouth
-Filename: pool/andrey-os-base_0.0.7_all.deb
-Size: 303532
-MD5sum: ed3056f372cda293fa977ee653be5d33
-SHA1: f128d92ce31b61e35874c4b3f6fa82a646786e87
-SHA256: 3a8b82eefa576c57b477bf63f7cd1fdda98d672c815b68d777df0ff9cdc15f86
-Section: misc
-Priority: optional
-Description: Identidade visual e atualizador do Andrey OS
- Paineis (barra superior e docks), icones vermelhos, wallpaper, tema Plymouth,
- branding do instalador, conky e o atualizador "andrey-update", que busca novas
- versoes no repositorio apt do projeto (GitHub Pages).
-
-Package: andrey-os-base
 Version: 0.0.8
 Architecture: all
 Maintainer: Andrey OS <andrey-os@localhost>
@@ -181,6 +162,25 @@ Size: 332512
 MD5sum: 2ad61e7744ecceaced1bb87c6caccfa5
 SHA1: 703bbb7d1609d92e2e70721133b52b1457b9a44c
 SHA256: 5203c7f68848b3e2dd933d7ef2de8ddbcd1d6d5464f5fdaa073916f770fbd62b
+Section: misc
+Priority: optional
+Description: Identidade visual e atualizador do Andrey OS
+ Paineis (barra superior e docks), icones vermelhos, wallpaper, tema Plymouth,
+ branding do instalador, conky e o atualizador "andrey-update", que busca novas
+ versoes no repositorio apt do projeto (GitHub Pages).
+
+Package: andrey-os-base
+Version: 0.1.7
+Architecture: all
+Maintainer: Andrey OS <andrey-os@localhost>
+Installed-Size: 1124
+Depends: mate-panel, mate-applets, libglib2.0-bin, curl, jq, zenity, pkexec, python3, python3-gi, gir1.2-gtk-3.0, librsvg2-common, chromium | chromium-browser | google-chrome-stable, wmctrl
+Recommends: plymouth
+Filename: pool/andrey-os-base_0.1.7_all.deb
+Size: 332484
+MD5sum: bd1886e949e433dcc02baf18c45b51cb
+SHA1: a992e7ddaa10335e0d1929952911a467b37aceb0
+SHA256: 124fcaf368cb761fd836f1a2ee9978fa2a9ec260ce06d3317f0202356a8f2f12
 Section: misc
 Priority: optional
 Description: Identidade visual e atualizador do Andrey OS
