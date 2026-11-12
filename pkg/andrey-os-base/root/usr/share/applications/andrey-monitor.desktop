@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Monitor do sistema
+Exec=mate-system-monitor
+Icon=andrey-monitor
+Terminal=false
+NoDisplay=true
+Categories=Utility;

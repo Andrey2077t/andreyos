@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Arquivos
+Exec=caja --no-desktop
+Icon=andrey-files
+Terminal=false
+NoDisplay=true
+Categories=Utility;

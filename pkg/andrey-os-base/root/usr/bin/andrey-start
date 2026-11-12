@@ -1,0 +1,817 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""Menu Iniciar do Andrey OS.
+
+  andrey-start             abre/fecha o menu (inicia o serviço se preciso)
+  andrey-start --daemon    deixa o menu residente e escondido (abre na hora depois)
+  andrey-start --toggle    abre se estiver fechado, fecha se estiver aberto
+  andrey-start --search    abre já com o cursor na busca
+
+Atalho: tecla Super (andrey-superkey), Super+S (busca) ou o botão da grade nos docks.
+Busca: aplicativos e configurações, arquivos da pasta pessoal, contas (2+2),
+comandos e pesquisa na web. Clique direito num aplicativo para fixar/desafixar.
+"""
+import json
+import os
+import shutil
+import subprocess
+import sys
+import threading
+import time
+import urllib.parse
+
+import gi
+
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+from gi.repository import Gdk, Gio, GLib, Gtk  # noqa: E402
+
+try:
+    gi.require_version("GdkX11", "3.0")
+    from gi.repository import GdkX11  # noqa: E402
+except (ValueError, ImportError):
+    GdkX11 = None
+
+sys.path.insert(0, "/usr/lib/andrey-os")
+from andrey_search import calc, index_home, match_files, norm, score_app  # noqa: E402
+
+APP_ID = "org.andreyos.Start"
+CFG_DIR = os.path.join(GLib.get_user_config_dir(), "andrey-os", "start")
+PINNED_FILE = os.path.join(CFG_DIR, "pinned.json")
+USAGE_FILE = os.path.join(CFG_DIR, "usage.json")
+
+DEFAULT_PINNED = [
+    "firefox-esr.desktop", "andrey-files.desktop", "andrey-terminal.desktop",
+    "andrey-store.desktop", "andrey-monitor.desktop", "andrey-settings.desktop",
+    "mate-calc.desktop", "pluma.desktop", "andrey-update.desktop", "andrey-about.desktop",
+    "eom.desktop", "atril.desktop",
+]
+
+WIDTH = 640
+COLS = 6
+
+CSS = b"""
+window.start-window {
+    background-color: rgba(11, 3, 6, 0.97);
+    border: 1px solid rgba(237, 18, 38, 0.50);
+    border-radius: 16px;
+    color: #ededf0;
+}
+.start-window entry {
+    background-color: rgba(255, 255, 255, 0.07);
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-radius: 10px;
+    padding: 9px 12px;
+    color: #ededf0;
+    min-height: 22px;
+}
+.start-window entry:focus { border-color: #ed1226; }
+.start-window .section {
+    font-weight: bold;
+    font-size: 11pt;
+    color: #ededf0;
+}
+.start-window .dim { color: rgba(237, 237, 240, 0.55); font-size: 9pt; }
+.start-window button.flat, .start-window button.tile {
+    background-image: none;
+    background-color: transparent;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    box-shadow: none;
+    color: #ededf0;
+    padding: 8px 4px;
+}
+.start-window button.flat:hover, .start-window button.tile:hover {
+    background-color: rgba(237, 18, 38, 0.20);
+    border-color: rgba(237, 18, 38, 0.55);
+}
+.start-window button.link { color: #ed1226; padding: 3px 10px; }
+.start-window list, .start-window list row { background-color: transparent; }
+.start-window list row { border-radius: 10px; padding: 4px 8px; }
+.start-window list row:hover { background-color: rgba(237, 18, 38, 0.16); }
+.start-window list row:selected { background-color: #ed1226; color: #ffffff; }
+.start-window list row:selected .dim { color: rgba(255, 255, 255, 0.85); }
+.start-window .letter {
+    color: #ed1226; font-weight: bold; padding: 8px 10px 2px 10px; font-size: 10pt;
+}
+.start-window .footer {
+    background-color: rgba(255, 255, 255, 0.04);
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 0 0 16px 16px;
+    padding: 8px 14px;
+}
+.start-window .avatar {
+    background-color: #ed1226; color: #ffffff; font-weight: bold;
+    border-radius: 16px; min-width: 32px; min-height: 32px;
+}
+.start-window popover, .start-window popover.background {
+    background-color: #160709;
+    border: 1px solid rgba(237, 18, 38, 0.45);
+    border-radius: 10px;
+}
+.start-window modelbutton { padding: 6px 14px; border-radius: 6px; color: #ededf0; }
+.start-window modelbutton:hover { background-color: #ed1226; color: #fff; }
+"""
+
+
+# ---------------------------------------------------------------------------
+# Persistência (JSON) e entradas de aplicativos
+# ---------------------------------------------------------------------------
+def load_json(path, default):
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        return default
+
+
+def save_json(path, data):
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f)
+        os.replace(tmp, path)
+    except OSError:
+        pass
+
+
+def make_entry(info):
+    name = info.get_display_name() or info.get_name() or ""
+    extra = " ".join(filter(None, [
+        info.get_name(), info.get_generic_name() if hasattr(info, "get_generic_name") else "",
+        info.get_description() or "",
+        " ".join(info.get_keywords()) if hasattr(info, "get_keywords") else "",
+        info.get_executable() or "",
+    ]))
+    cats = info.get_categories() if hasattr(info, "get_categories") else ""
+    return {"id": info.get_id(), "info": info, "name": name, "lname": norm(name),
+            "lextra": norm(extra), "icon": info.get_icon(),
+            "settings": bool(cats and "Settings" in cats)}
+
+
+# ---------------------------------------------------------------------------
+# Interface
+# ---------------------------------------------------------------------------
+def make_icon(gicon, size=32):
+    if gicon is None:
+        img = Gtk.Image.new_from_icon_name("application-x-executable", Gtk.IconSize.DIALOG)
+    else:
+        img = Gtk.Image.new_from_gicon(gicon, Gtk.IconSize.DIALOG)
+    img.set_pixel_size(size)
+    return img
+
+
+def label(text, css=None, xalign=0.0, ellipsize=True):
+    lb = Gtk.Label(label=text, xalign=xalign)
+    if ellipsize:
+        lb.set_ellipsize(3)  # END
+    if css:
+        lb.get_style_context().add_class(css)
+    return lb
+
+
+class StartMenu(Gtk.Window):
+    def __init__(self, app):
+        super().__init__(type=Gtk.WindowType.TOPLEVEL)
+        self.app = app
+        self.set_application(app)
+        self.set_title("Menu Iniciar")
+        self.set_decorated(False)
+        self.set_resizable(False)
+        self.set_skip_taskbar_hint(True)
+        self.set_skip_pager_hint(True)
+        self.set_keep_above(True)
+        self.set_role("andrey-start")
+        self.get_style_context().add_class("start-window")
+        vis = self.get_screen().get_rgba_visual()
+        if vis is not None:
+            self.set_visual(vis)
+
+        self.hidden_at = 0.0
+        self.entries = []          # apps instalados
+        self.by_id = {}
+        self.apps_dirty = True
+        self.index = []
+        self.index_time = 0.0
+        self.index_busy = False
+        saved = load_json(PINNED_FILE, None)
+        # lista vazia é uma escolha válida (desafixou tudo); só usa o padrão se não houver arquivo/for inválido
+        self.pinned = [p for p in (saved if isinstance(saved, list) else DEFAULT_PINNED) if isinstance(p, str)]
+        usage = load_json(USAGE_FILE, {})
+        self.usage = usage if isinstance(usage, dict) else {}
+        self.open_popover = None
+
+        self._build()
+        self.connect("key-press-event", self._on_key)
+        self.connect("notify::is-active", self._on_active)
+        self.connect("delete-event", lambda *_: (self.hide_menu(), True)[1])
+        Gio.AppInfoMonitor.get().connect("changed", lambda *_: setattr(self, "apps_dirty", True))
+
+    # ----- construção -----
+    def _build(self):
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.add(root)
+
+        top = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        top.set_margin_top(18)
+        top.set_margin_start(20)
+        top.set_margin_end(20)
+        top.set_margin_bottom(8)
+        self.entry = Gtk.SearchEntry()
+        self.entry.set_placeholder_text("Pesquise aplicativos, configurações, arquivos e contas")
+        self.entry.connect("search-changed", self._on_search_changed)
+        self.entry.connect("activate", self._on_entry_activate)
+        self.entry.connect("key-press-event", self._on_entry_key)
+        top.pack_start(self.entry, False, False, 0)
+        root.pack_start(top, False, False, 0)
+
+        self.stack = Gtk.Stack()
+        self.stack.set_vexpand(True)
+        root.pack_start(self.stack, True, True, 0)
+        self.stack.add_named(self._build_home(), "home")
+        self.stack.add_named(self._build_all(), "all")
+        self.stack.add_named(self._build_search(), "search")
+
+        # rodapé: usuário e energia
+        foot = Gtk.Box(spacing=10)
+        foot.get_style_context().add_class("footer")
+        ubtn = Gtk.Button()
+        ubtn.set_relief(Gtk.ReliefStyle.NONE)
+        ubtn.set_tooltip_text("Abrir a pasta pessoal")
+        ubtn.connect("clicked", lambda *_: self._run_cmd(["caja", "--no-desktop"]))
+        ub = Gtk.Box(spacing=10)
+        user = GLib.get_real_name()
+        if not user or user == "Unknown":
+            user = GLib.get_user_name()
+        face = os.path.expanduser("~/.face")
+        if os.path.isfile(face):
+            try:
+                from gi.repository import GdkPixbuf
+                pb = GdkPixbuf.Pixbuf.new_from_file_at_size(face, 32, 32)
+                ub.pack_start(Gtk.Image.new_from_pixbuf(pb), False, False, 0)
+            except GLib.Error:
+                face = ""
+        if not os.path.isfile(face):
+            av = Gtk.Label(label=(user[:1] or "A").upper())
+            av.get_style_context().add_class("avatar")
+            ub.pack_start(av, False, False, 0)
+        ub.pack_start(label(user, "section"), False, False, 0)
+        ubtn.add(ub)
+        foot.pack_start(ubtn, False, False, 0)
+
+        pw = Gtk.Button()
+        pw.set_relief(Gtk.ReliefStyle.NONE)
+        pw.set_tooltip_text("Energia")
+        pw.add(Gtk.Image.new_from_icon_name("system-shutdown-symbolic", Gtk.IconSize.LARGE_TOOLBAR))
+        pw.connect("clicked", self._power_menu)
+        foot.pack_end(pw, False, False, 0)
+        root.pack_end(foot, False, False, 0)
+
+    def _build_home(self):
+        sc = Gtk.ScrolledWindow()
+        sc.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        box.set_margin_start(20)
+        box.set_margin_end(20)
+        box.set_margin_top(6)
+        box.set_margin_bottom(10)
+        sc.add(box)
+
+        h = Gtk.Box()
+        h.pack_start(label("Fixados", "section"), True, True, 0)
+        more = Gtk.Button(label="Todos os aplicativos  ›")
+        more.set_relief(Gtk.ReliefStyle.NONE)
+        more.get_style_context().add_class("link")
+        more.connect("clicked", lambda *_: self.show_page("all"))
+        h.pack_end(more, False, False, 0)
+        box.pack_start(h, False, False, 4)
+
+        self.pinned_box = Gtk.FlowBox()
+        self.pinned_box.set_selection_mode(Gtk.SelectionMode.NONE)
+        self.pinned_box.set_homogeneous(True)
+        self.pinned_box.set_min_children_per_line(COLS)
+        self.pinned_box.set_max_children_per_line(COLS)
+        self.pinned_box.set_row_spacing(2)
+        self.pinned_box.set_column_spacing(2)
+        box.pack_start(self.pinned_box, False, False, 0)
+
+        box.pack_start(label("Recomendados", "section"), False, False, 0)
+        self.recent_box = Gtk.FlowBox()
+        self.recent_box.set_selection_mode(Gtk.SelectionMode.NONE)
+        self.recent_box.set_homogeneous(True)
+        self.recent_box.set_min_children_per_line(2)
+        self.recent_box.set_max_children_per_line(2)
+        box.pack_start(self.recent_box, False, False, 4)
+        self.recent_empty = label("Os aplicativos que você usar aparecem aqui.", "dim")
+        box.pack_start(self.recent_empty, False, False, 4)
+        return sc
+
+    def _build_all(self):
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        h = Gtk.Box()
+        h.set_margin_start(20)
+        h.set_margin_end(20)
+        h.pack_start(label("Todos os aplicativos", "section"), True, True, 0)
+        back = Gtk.Button(label="‹  Voltar")
+        back.set_relief(Gtk.ReliefStyle.NONE)
+        back.get_style_context().add_class("link")
+        back.connect("clicked", lambda *_: self.show_page("home"))
+        h.pack_end(back, False, False, 0)
+        box.pack_start(h, False, False, 4)
+        sc = Gtk.ScrolledWindow()
+        sc.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        sc.set_margin_start(12)
+        sc.set_margin_end(12)
+        self.all_list = Gtk.ListBox()
+        self.all_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.all_list.set_header_func(self._letter_header)
+        self.all_list.connect("row-activated", self._on_row_activated)
+        sc.add(self.all_list)
+        box.pack_start(sc, True, True, 0)
+        return box
+
+    def _build_search(self):
+        sc = Gtk.ScrolledWindow()
+        sc.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        sc.set_margin_start(12)
+        sc.set_margin_end(12)
+        self.res_list = Gtk.ListBox()
+        self.res_list.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.res_list.connect("row-activated", self._on_row_activated)
+        sc.add(self.res_list)
+        return sc
+
+    @staticmethod
+    def _letter_header(row, before):
+        ent = getattr(row, "entry", None)
+        if not ent:
+            return
+        ch = (ent["name"][:1] or "#").upper()
+        if not ch.isalpha():
+            ch = "#"
+        prev = getattr(before, "entry", None) if before else None
+        pch = None
+        if prev:
+            pch = (prev["name"][:1] or "#").upper()
+            pch = pch if pch.isalpha() else "#"
+        if ch != pch:
+            row.set_header(label(ch, "letter"))
+        else:
+            row.set_header(None)
+
+    # ----- dados -----
+    def refresh_apps(self):
+        if not self.apps_dirty:
+            return
+        seen, entries = set(), []
+        for info in Gio.AppInfo.get_all():
+            try:
+                if not info.should_show():
+                    continue
+            except Exception:
+                continue
+            aid = info.get_id() or ""
+            if aid in seen or aid.startswith("andrey-start"):
+                continue
+            seen.add(aid)
+            entries.append(make_entry(info))
+        entries.sort(key=lambda e: e["lname"])
+        self.entries = entries
+        self.by_id = {e["id"]: e for e in entries}
+        self.apps_dirty = False
+        self._fill_all()
+
+    def entry_for(self, desktop_id):
+        e = self.by_id.get(desktop_id)
+        if e:
+            return e
+        try:
+            info = Gio.DesktopAppInfo.new(desktop_id)
+        except Exception:
+            info = None
+        return make_entry(info) if info else None
+
+    def _fill_all(self):
+        for ch in self.all_list.get_children():
+            self.all_list.remove(ch)
+        for e in self.entries:
+            self.all_list.add(self._app_row(e))
+        self.all_list.show_all()
+
+    def _fill_home(self):
+        for box in (self.pinned_box, self.recent_box):
+            for ch in box.get_children():
+                box.remove(ch)
+        for pid in self.pinned:
+            e = self.entry_for(pid)
+            if e:
+                self.pinned_box.add(self._tile(e))
+        recent = sorted(((v.get("last", 0), k) for k, v in self.usage.items()), reverse=True)
+        n = 0
+        for _, aid in recent:
+            e = self.by_id.get(aid)
+            if not e or n >= 6:
+                continue
+            self.recent_box.add(self._recent_item(e))
+            n += 1
+        self.recent_empty.set_visible(n == 0)
+        self.recent_box.set_visible(n > 0)
+        self.pinned_box.show_all()
+        self.recent_box.show_all()
+
+    def _tile(self, e):
+        btn = Gtk.Button()
+        btn.set_relief(Gtk.ReliefStyle.NONE)
+        btn.get_style_context().add_class("tile")
+        vb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        vb.pack_start(make_icon(e["icon"], 40), False, False, 0)
+        lb = Gtk.Label(label=e["name"])
+        lb.set_line_wrap(True)
+        lb.set_lines(2)
+        lb.set_ellipsize(3)
+        lb.set_max_width_chars(11)
+        lb.set_justify(Gtk.Justification.CENTER)
+        vb.pack_start(lb, False, False, 0)
+        btn.add(vb)
+        btn.set_tooltip_text(e["info"].get_description() or e["name"])
+        btn.connect("clicked", lambda *_: self.launch(e))
+        btn.connect("button-press-event", self._on_item_press, e)
+        return btn
+
+    def _recent_item(self, e):
+        btn = Gtk.Button()
+        btn.set_relief(Gtk.ReliefStyle.NONE)
+        btn.get_style_context().add_class("tile")
+        hb = Gtk.Box(spacing=10)
+        hb.pack_start(make_icon(e["icon"], 28), False, False, 0)
+        hb.pack_start(label(e["name"]), True, True, 0)
+        btn.add(hb)
+        btn.connect("clicked", lambda *_: self.launch(e))
+        btn.connect("button-press-event", self._on_item_press, e)
+        return btn
+
+    def _app_row(self, e, subtitle=None):
+        row = Gtk.ListBoxRow()
+        row.entry = e
+        row.action = lambda e=e: self.launch(e)
+        hb = Gtk.Box(spacing=12)
+        hb.set_margin_top(2)
+        hb.set_margin_bottom(2)
+        hb.pack_start(make_icon(e["icon"], 28), False, False, 0)
+        vb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        vb.set_valign(Gtk.Align.CENTER)
+        vb.pack_start(label(e["name"]), False, False, 0)
+        if subtitle:
+            vb.pack_start(label(subtitle, "dim"), False, False, 0)
+        hb.pack_start(vb, True, True, 0)
+        eb = Gtk.EventBox()
+        eb.set_visible_window(False)
+        eb.add(hb)
+        row.add(eb)
+        eb.connect("button-press-event", self._on_item_press, e)
+        return row
+
+    def _simple_row(self, icon_name, title, subtitle, action):
+        row = Gtk.ListBoxRow()
+        row.entry = None
+        row.action = action
+        hb = Gtk.Box(spacing=12)
+        hb.set_margin_top(2)
+        hb.set_margin_bottom(2)
+        img = Gtk.Image.new_from_icon_name(icon_name, Gtk.IconSize.DIALOG)
+        img.set_pixel_size(28)
+        hb.pack_start(img, False, False, 0)
+        vb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        vb.set_valign(Gtk.Align.CENTER)
+        vb.pack_start(label(title), False, False, 0)
+        vb.pack_start(label(subtitle, "dim"), False, False, 0)
+        hb.pack_start(vb, True, True, 0)
+        row.add(hb)
+        return row
+
+    # ----- pesquisa -----
+    def _on_search_changed(self, entry):
+        q = entry.get_text().strip()
+        if not q:
+            self.show_page("home" if self.stack.get_visible_child_name() != "all" else "all")
+            return
+        self.show_page("search")
+        self._run_search(q)
+
+    def _run_search(self, q):
+        ql = norm(q)
+        rows = []
+
+        res = self._calc_row(q)
+        if res:
+            rows.append(res)
+
+        scored = [(score_app(e, ql), e) for e in self.entries]
+        scored = sorted([s for s in scored if s[0] > 0], key=lambda s: (-s[0], s[1]["lname"]))
+        for _, e in scored[:8]:
+            rows.append(self._app_row(e, "Configurações" if e["settings"] else "Aplicativo"))
+
+        for name, path, is_dir in match_files(self.index, ql):
+            rows.append(self._file_row(name, path, is_dir))
+
+        first = q.split()[0]
+        if shutil.which(first) and not scored:
+            rows.append(self._simple_row("utilities-terminal", "Executar: " + q, "Comando",
+                                         lambda q=q: self._run_cmd(["sh", "-c", q])))
+        rows.append(self._simple_row(
+            "web-browser", "Pesquisar na web por “%s”" % q, "DuckDuckGo",
+            lambda q=q: self._open_uri("https://duckduckgo.com/?q=" + urllib.parse.quote_plus(q))))
+        self._set_results(rows)
+        if len(ql) >= 2 and self._index_stale():
+            self._start_index()
+
+    def _calc_row(self, q):
+        r = calc(q)
+        if r is None:
+            return None
+        return self._simple_row("accessories-calculator", "= " + r, "Resultado — clique para copiar",
+                                lambda r=r: self._copy(r))
+
+    def _file_row(self, name, path, is_dir):
+        home = os.path.expanduser("~")
+        rel = "~" + path[len(home):] if path.startswith(home) else path
+        icon = "folder" if is_dir else "text-x-generic"
+        return self._simple_row(icon, name, ("Pasta — " if is_dir else "Arquivo — ") + rel,
+                                lambda p=path: self._open_uri(Gio.File.new_for_path(p).get_uri()))
+
+    def _index_stale(self):
+        """True se nunca indexou ou o índice tem mais de 2 minutos (índice vazio NÃO conta como velho,
+        senão uma pasta pessoal vazia reindexaria em laço)."""
+        return self.index_time == 0.0 or time.monotonic() - self.index_time > 120
+
+    def _start_index(self):
+        if self.index_busy:
+            return
+        self.index_busy = True
+
+        def work():
+            data = []
+            try:
+                data = index_home()
+            finally:
+                GLib.idle_add(self._index_done, data)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _index_done(self, data):
+        self.index, self.index_time, self.index_busy = data, time.monotonic(), False
+        q = self.entry.get_text().strip()
+        if q and self.stack.get_visible_child_name() == "search":
+            self._run_search(q)
+        return False
+
+    def _set_results(self, rows):
+        for ch in self.res_list.get_children():
+            self.res_list.remove(ch)
+        for r in rows:
+            self.res_list.add(r)
+        self.res_list.show_all()
+        first = self.res_list.get_row_at_index(0)
+        if first:
+            self.res_list.select_row(first)
+
+    # ----- ações -----
+    def launch(self, e):
+        try:
+            ctx = Gdk.Display.get_default().get_app_launch_context()
+            e["info"].launch([], ctx)
+        except GLib.Error as err:
+            self._run_cmd(["zenity", "--error", "--no-markup", "--text",
+                           "Não consegui abrir %s:\n%s" % (e["name"], err.message)])
+            return
+        u = self.usage.setdefault(e["id"], {"count": 0, "last": 0})
+        u["count"] += 1
+        u["last"] = time.time()
+        save_json(USAGE_FILE, self.usage)
+        self.hide_menu()
+
+    def _open_uri(self, uri):
+        try:
+            Gio.AppInfo.launch_default_for_uri(uri, Gdk.Display.get_default().get_app_launch_context())
+        except GLib.Error:
+            pass
+        self.hide_menu()
+
+    def _run_cmd(self, argv):
+        try:
+            subprocess.Popen(argv, start_new_session=True)
+        except OSError:
+            pass
+        self.hide_menu()
+
+    def _copy(self, text):
+        Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD).set_text(text, -1)
+        self.hide_menu()
+
+    def _on_row_activated(self, _lb, row):
+        act = getattr(row, "action", None)
+        if act:
+            act()
+
+    def _on_entry_activate(self, _entry):
+        row = self.res_list.get_selected_row() if self.stack.get_visible_child_name() == "search" else None
+        if row and getattr(row, "action", None):
+            row.action()
+
+    def _on_entry_key(self, _w, ev):
+        if ev.keyval in (Gdk.KEY_Down, Gdk.KEY_Tab) and self.stack.get_visible_child_name() == "search":
+            row = self.res_list.get_selected_row() or self.res_list.get_row_at_index(0)
+            if row:
+                row.grab_focus()
+                return True
+        if ev.keyval == Gdk.KEY_Down and self.stack.get_visible_child_name() == "all":
+            row = self.all_list.get_row_at_index(0)
+            if row:
+                row.grab_focus()
+                return True
+        return False
+
+    def _on_key(self, _w, ev):
+        if ev.keyval == Gdk.KEY_Escape:
+            if self.open_popover:
+                self.open_popover.popdown()
+                return True
+            page = self.stack.get_visible_child_name()
+            if self.entry.get_text():
+                self.entry.set_text("")
+            elif page == "all":
+                self.show_page("home")
+            else:
+                self.hide_menu()
+            return True
+        if not self.entry.is_focus() and not self.open_popover:
+            mod = ev.state & (Gdk.ModifierType.CONTROL_MASK | Gdk.ModifierType.MOD1_MASK
+                              | Gdk.ModifierType.SUPER_MASK)
+            ch = Gdk.keyval_to_unicode(ev.keyval)
+            if not mod and ch and chr(ch).isprintable():
+                self.entry.grab_focus_without_selecting()
+                self.entry.handle_event(ev)
+                return True
+        return False
+
+    def _on_item_press(self, _w, ev, e):
+        if ev.type == Gdk.EventType.BUTTON_PRESS and ev.button == 3:
+            self._item_menu(_w, e)
+            return True
+        return False
+
+    def _popover(self, relative, items, position=Gtk.PositionType.BOTTOM):
+        pop = Gtk.Popover.new(relative)
+        pop.set_position(position)
+        vb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        vb.set_margin_top(6)
+        vb.set_margin_bottom(6)
+        vb.set_margin_start(6)
+        vb.set_margin_end(6)
+        for text, cb in items:
+            b = Gtk.ModelButton(text=text)
+            b.connect("clicked", lambda _b, cb=cb, pop=pop: (pop.popdown(), cb()))
+            vb.pack_start(b, False, False, 0)
+        pop.add(vb)
+        vb.show_all()
+        pop.connect("closed", lambda *_: setattr(self, "open_popover", None))
+        self.open_popover = pop
+        pop.popup()
+        return pop
+
+    def _item_menu(self, widget, e):
+        pinned = e["id"] in self.pinned
+        items = [("Abrir", lambda: self.launch(e)),
+                 ("Desafixar do Menu Iniciar" if pinned else "Fixar no Menu Iniciar",
+                  lambda: self._toggle_pin(e["id"]))]
+        self._popover(widget, items)
+
+    def _toggle_pin(self, aid):
+        if aid in self.pinned:
+            self.pinned.remove(aid)
+        else:
+            self.pinned.append(aid)
+        save_json(PINNED_FILE, self.pinned)
+        self._fill_home()
+
+    def _power_menu(self, btn):
+        shut = "systemctl %s || mate-session-save --shutdown-dialog"
+        items = [
+            ("Bloquear", lambda: self._run_cmd(["andrey-lock"])),
+            ("Sair da sessão", lambda: self._run_cmd(["mate-session-save", "--logout-dialog"])),
+            ("Suspender", lambda: self._run_cmd(["sh", "-c", "systemctl suspend"])),
+            ("Reiniciar", lambda: self._run_cmd(["sh", "-c", shut % "reboot"])),
+            ("Desligar", lambda: self._run_cmd(["sh", "-c", shut % "poweroff"])),
+        ]
+        self._popover(btn, items, Gtk.PositionType.TOP)
+
+    # ----- mostrar / esconder -----
+    def show_page(self, name):
+        self.stack.set_visible_child_name(name)
+        if name == "all":
+            self.all_list.show_all()
+
+    def _place(self):
+        disp = Gdk.Display.get_default()
+        seat = disp.get_default_seat()
+        _s, x, y = seat.get_pointer().get_position()[0:3] if seat else (None, 0, 0)
+        mon = disp.get_monitor_at_point(x, y) or disp.get_primary_monitor() or disp.get_monitor(0)
+        g = mon.get_workarea()
+        h = max(420, min(720, g.height - 90))
+        self.set_size_request(WIDTH, h)
+        self.resize(WIDTH, h)
+        self.move(g.x + (g.width - WIDTH) // 2, g.y + g.height - h - 74)
+
+    def show_menu(self, search=False):
+        self.refresh_apps()
+        self._fill_home()
+        self.entry.set_text("")
+        self.show_page("home")
+        self._place()
+        self.show_all()
+        has_recent = bool(self.recent_box.get_children())
+        self.recent_empty.set_visible(not has_recent)
+        self.recent_box.set_visible(has_recent)
+        self._place()
+        ts = 0
+        try:
+            if GdkX11 and self.get_window() is not None:
+                ts = GdkX11.x11_get_server_time(self.get_window())
+        except Exception:
+            ts = 0
+        if ts:
+            self.present_with_time(ts)
+        else:
+            self.present()
+        self.entry.grab_focus()
+        if self._index_stale():
+            self._start_index()
+
+    def hide_menu(self):
+        if self.open_popover:
+            self.open_popover.popdown()
+        if self.get_visible():
+            self.hidden_at = time.monotonic()
+            self.hide()
+
+    def toggle(self, search=False):
+        if self.get_visible():
+            self.hide_menu()
+        elif time.monotonic() - self.hidden_at > 0.35:
+            self.show_menu(search)
+
+    def _on_active(self, *_):
+        if not self.is_active():
+            GLib.timeout_add(150, self._maybe_hide)
+
+    def _maybe_hide(self):
+        if self.get_visible() and not self.is_active() and not self.open_popover:
+            self.hide_menu()
+        return False
+
+
+class StartApp(Gtk.Application):
+    def __init__(self):
+        super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
+        self.menu = None
+        for name in ("toggle", "search", "show", "hide"):
+            act = Gio.SimpleAction.new(name, None)
+            act.connect("activate", self._on_action, name)
+            self.add_action(act)
+
+    def do_startup(self):
+        Gtk.Application.do_startup(self)
+        prov = Gtk.CssProvider()
+        prov.load_from_data(CSS)
+        Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), prov,
+                                                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        self.hold()
+        self.menu = StartMenu(self)
+
+    def _on_action(self, _a, _p, name):
+        if name == "toggle":
+            self.menu.toggle()
+        elif name == "search":
+            self.menu.show_menu(search=True)
+        elif name == "show":
+            self.menu.show_menu()
+        elif name == "hide":
+            self.menu.hide_menu()
+
+    def do_command_line(self, cl):
+        args = cl.get_arguments()[1:]
+        if "--daemon" in args:
+            pass
+        elif "--search" in args:
+            self.menu.show_menu(search=True)
+        elif "--toggle" in args or not args:
+            self.menu.toggle()
+        self.activate()
+        return 0
+
+    def do_activate(self):
+        pass
+
+
+if __name__ == "__main__":
+    sys.exit(StartApp().run(sys.argv))
