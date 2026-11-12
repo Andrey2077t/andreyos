@@ -1,0 +1,15 @@
+#!/bin/sh
+# Identidade do sistema: os-release, issue, motd
+set -e
+
+# os-release / issue / motd com a versao do pacote andrey-os-base (instalado no hook 0050)
+/usr/lib/andrey-os/sync-version || { echo "ERRO: sync-version falhou" >&2; exit 1; }
+grep -q '^VERSION_ID="[0-9]' /etc/os-release || { echo "ERRO: os-release sem versao" >&2; exit 1; }
+
+echo "andrey-os" > /etc/hostname
+
+# locale / teclado / fuso padrão
+sed -i 's/^# *pt_BR.UTF-8 UTF-8/pt_BR.UTF-8 UTF-8/' /etc/locale.gen
+locale-gen
+update-locale LANG=pt_BR.UTF-8
+ln -sf /usr/share/zoneinfo/America/Sao_Paulo /etc/localtime

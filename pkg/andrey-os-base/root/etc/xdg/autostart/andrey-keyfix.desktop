@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Religar a tecla Super (Andrey OS)
+Exec=andrey-keys --fix-super
+Terminal=false
+NoDisplay=true
+X-MATE-Autostart-enabled=true
+X-MATE-Autostart-Phase=Initialization
