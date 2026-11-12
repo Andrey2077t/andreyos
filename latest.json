@@ -1,6 +1,6 @@
 {
-  "version": "0.1.3",
-  "previous": "0.1.2",
-  "notes": "Corrige bugs: calculadora, apt-helper, andrey-keys e CI",
-  "date": "2026-11-12T09:28:33Z"
+  "version": "0.1.4",
+  "previous": "0.1.3",
+  "notes": "Corrige teclas engolidas e adiciona Andrey AI ao Menu Iniciar",
+  "date": "2026-11-12T10:38:04Z"
 }
