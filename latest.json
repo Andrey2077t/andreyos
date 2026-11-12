@@ -1,6 +1,6 @@
 {
-  "version": "0.1.5",
-  "previous": "0.1.4",
-  "notes": "Corrige teclas engolidas, adiciona Andrey AI e Super+Espaço",
-  "date": "2026-11-12T10:59:42Z"
+  "version": "0.1.6",
+  "previous": "0.1.5",
+  "notes": "Drivers e hardware: andrey-drivers, firmware, microcode, Mesa (0.1.6)",
+  "date": "2026-11-12T21:06:07Z"
 }
