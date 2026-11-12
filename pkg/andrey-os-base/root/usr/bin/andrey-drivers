@@ -1,0 +1,271 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""Drivers e hardware do Andrey OS: detecta o que você tem e instala os drivers certos (AMD, Intel, NVIDIA...).
+
+  andrey-drivers             janela: mostra o hardware e instala o que falta
+  andrey-drivers --report    relatório em texto no terminal (não instala nada)
+  andrey-drivers --auto      instala tudo que for recomendado, sem janela
+  andrey-drivers --newer     drivers mais novos (kernel, Mesa e firmware do trixie-backports)
+  andrey-drivers --firmware  atualizações de firmware (BIOS, SSD, periféricos) via fwupd
+  andrey-drivers --check     silencioso: só avisa se faltar driver (roda sozinho depois do login)
+"""
+import os
+import socket
+import subprocess
+import sys
+import tempfile
+import time
+
+sys.path.insert(0, "/usr/lib/andrey-os")
+import andrey_drivers as D  # noqa: E402
+
+HELPER = "/usr/lib/andrey-os/drivers-helper"
+TITLE = "Drivers e hardware"
+SEEN = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"), "andrey-os", "drivers-seen")
+
+
+def zenity(*args, stdin=None):
+    """Roda o zenity; devolve (codigo, saida)."""
+    try:
+        r = subprocess.run(["zenity", "--no-markup", "--title=" + TITLE, *args], input=stdin,
+                           capture_output=True, text=True)
+    except OSError:
+        return 1, ""
+    return r.returncode, r.stdout.strip()
+
+
+def info(text, kind="--info"):
+    zenity(kind, "--width=460", "--text=" + text)
+
+
+def online():
+    try:
+        socket.create_connection(("deb.debian.org", 80), timeout=4).close()
+        return True
+    except OSError:
+        return False
+
+
+def collect():
+    devs = D.read_pci()
+    cpu, virt = D.cpu_vendor(), D.detect_virt()
+    nv = None
+    if any(d["vendor"] == D.V_NVIDIA and d["cls"] in D.GPU_CLASSES for d in devs):
+        nv = D.parse_nvidia_detect(D.run_nvidia_detect())
+    wifi = D.has_wifi_iface()
+    allp = D.plan_packages(devs, cpu, virt, nv, wifi)
+    plan = D.build_plan(devs, cpu, virt, D.installed_set(allp), D.available_func(allp), nv, wifi, D.pci_names())
+    return {"devs": devs, "cpu": cpu, "virt": virt, "nv": nv, "plan": plan}
+
+
+def last_line(path):
+    try:
+        with open(path, encoding="utf-8", errors="replace") as f:
+            lines = [ln.strip() for ln in f.read().splitlines() if ln.strip()]
+        return lines[-1][:90] if lines else "Trabalhando..."
+    except OSError:
+        return "Trabalhando..."
+
+
+def run_helper(args, title, stdin_text=None):
+    """Roda o drivers-helper como root (pkexec) com barra de progresso. Devolve (codigo, log)."""
+    log = tempfile.NamedTemporaryFile("w+", suffix=".log", delete=False)
+    log.close()
+    with open(log.name, "w", encoding="utf-8") as out:
+        proc = subprocess.Popen(["pkexec", HELPER, *args], stdin=subprocess.PIPE, stdout=out, stderr=subprocess.STDOUT,
+                                text=True)
+        if stdin_text is not None:
+            proc.stdin.write(stdin_text + "\n")
+        proc.stdin.close()
+        z = None
+        try:
+            z = subprocess.Popen(["zenity", "--progress", "--pulsate", "--no-cancel", "--auto-close", "--no-markup",
+                                  "--title=" + title, "--width=460", "--text=Aguardando autorização..."],
+                                 stdin=subprocess.PIPE, text=True)
+        except OSError:
+            pass
+        while proc.poll() is None:
+            if z is not None:
+                try:
+                    z.stdin.write("# " + last_line(log.name) + "\n")
+                    z.stdin.flush()
+                except (BrokenPipeError, OSError):
+                    z = None
+            time.sleep(1)
+        if z is not None:
+            try:
+                z.stdin.write("100\n")
+                z.stdin.close()
+                z.wait(timeout=5)
+            except (BrokenPipeError, OSError, subprocess.SubprocessError):
+                pass
+    with open(log.name, encoding="utf-8", errors="replace") as f:
+        text = f.read()
+    os.unlink(log.name)
+    return proc.returncode, text
+
+
+def after_install(log):
+    """Depois de instalar: cadastra a chave no Secure Boot (se precisar) e oferece reiniciar."""
+    if "ANDREY-MOK-NEEDED" in log:
+        rc, pw = zenity("--entry", "--hide-text", "--width=460",
+                        "--text=Seu computador usa Secure Boot. Para o driver carregar, crie uma senha de 8+ "
+                        "caracteres.\nNo próximo boot aparece uma tela azul (MOK): escolha 'Enroll MOK' e digite "
+                        "essa senha.")
+        if rc == 0 and pw:
+            rc2, log2 = run_helper(["mok-enroll"], TITLE, pw)
+            if rc2 != 0:
+                info("Não consegui cadastrar a chave:\n" + log2[-300:], "--error")
+        else:
+            info("Sem cadastrar a chave o driver NVIDIA/Broadcom não carrega com o Secure Boot ligado. "
+                 "Rode 'andrey-drivers' de novo quando quiser concluir, ou desligue o Secure Boot na BIOS.", "--warning")
+    rc, _ = zenity("--question", "--width=420", "--ok-label=Reiniciar agora", "--cancel-label=Depois",
+                   "--text=Pronto! Reinicie o computador para os drivers novos entrarem em uso.")
+    if rc == 0:
+        subprocess.run(["systemctl", "reboot"])
+
+
+def do_install(pkgs, newer=False):
+    if D.is_live():
+        info("Você está numa sessão live: o que fosse instalado ficaria só na memória e some ao desligar. "
+             "Instale o Andrey OS no disco e rode isto de novo (aqui o vídeo livre da Mesa/nouveau já funciona).")
+        return
+    if not online():
+        info("Sem internet. Conecte e tente de novo (os drivers vêm dos repositórios do Debian).", "--warning")
+        return
+    rc, log = run_helper(["install-newer" if newer else "install", *pkgs], TITLE)
+    if rc == 0 and "ANDREY-DRIVERS-OK" in log:
+        after_install(log)
+    elif rc in (126, 127):
+        pass  # autorização cancelada
+    else:
+        tail = "\n".join(log.strip().splitlines()[-6:])
+        info("A instalação falhou:\n\n" + tail, "--error")
+
+
+def newer():
+    ctx = collect()
+    rc, _ = zenity("--question", "--width=480", "--ok-label=Usar versões mais novas", "--cancel-label=Cancelar",
+                   "--text=Isto liga o repositório trixie-backports do Debian e atualiza kernel, Mesa, firmware"
+                   + (" e o driver NVIDIA" if any(i["id"] == "gpu-nvidia" for i in ctx["plan"]) else "")
+                   + " para as versões mais novas dele. Dá suporte a hardware recente, mas é menos testado que "
+                   "o estável. Pode reiniciar depois.")
+    if rc == 0:
+        do_install(D.newer_packages(ctx["plan"], ctx["nv"]), newer=True)
+
+
+def firmware():
+    if D.is_live():
+        info("Atualização de firmware só vale no sistema instalado.")
+        return
+    if not online():
+        info("Sem internet.", "--warning")
+        return
+    ctx = collect()
+    fw = next((i for i in ctx["plan"] if i["id"] == "fwupd"), None)
+    if fw and fw["missing"]:
+        do_install(fw["missing"])
+    rc, _ = run_helper(["fwupd-refresh"], TITLE)
+    rc, out = run_helper(["fwupd-list"], TITLE)
+    low = out.lower()
+    if "no updates" in low or "no upgrades" in low or "nenhuma" in low or "no devices" in low or not out.strip():
+        info("Nenhuma atualização de firmware disponível para o seu hardware.")
+        return
+    rc, _ = zenity("--question", "--width=520", "--ok-label=Atualizar", "--cancel-label=Agora não",
+                   "--text=Há atualizações de firmware (pode incluir BIOS). NÃO desligue o computador durante o "
+                   "processo; ele pode reiniciar sozinho.\n\n" + out[-900:])
+    if rc == 0:
+        rc, log = run_helper(["fwupd-apply"], TITLE)
+        info("Concluído." if rc == 0 else "Terminou com avisos:\n" + log[-400:])
+
+
+def gui():
+    ctx = collect()
+    todo = [i for i in ctx["plan"] if i["missing"] and i["id"] != "fwupd"]
+    gpus = [i["title"] for i in ctx["plan"] if i["id"].startswith("gpu-")]
+    head = "CPU: " + (ctx["cpu"] or "?") + ("\n" + "\n".join(gpus) if gpus else "")
+    extra = ["--extra-button=Drivers mais novos", "--extra-button=Firmware"]
+    if not todo:
+        rc, out = zenity("--question", "--width=480", "--ok-label=Fechar", "--cancel-label=Fechar", *extra,
+                         "--text=Tudo certo: os drivers recomendados para o seu hardware já estão instalados.\n\n" + head)
+    else:
+        rows = []
+        for i in todo:
+            rows += ["TRUE", i["title"], " ".join(i["missing"]), i["why"]]
+        rc, out = zenity("--list", "--checklist", "--width=860", "--height=420", "--print-column=3", "--separator=,",
+                         "--column=Instalar", "--column=Item", "--column=Pacotes", "--column=Para quê",
+                         "--ok-label=Instalar selecionados", "--cancel-label=Fechar", *extra,
+                         "--text=" + head + "\n\nDrivers que faltam:", *rows)
+    if out == "Drivers mais novos":
+        newer()
+    elif out == "Firmware":
+        firmware()
+    elif rc == 0 and todo:
+        pkgs = sorted({p for chunk in out.split(",") for p in chunk.split() if p})
+        if pkgs:
+            do_install(pkgs)
+
+
+def check():
+    """Depois do login: avisa UMA vez por conjunto de drivers faltando (nao enche o saco)."""
+    if D.is_live() or not online():
+        return
+    ctx = collect()
+    fp = D.fingerprint([i for i in ctx["plan"] if i["id"] != "fwupd"])
+    if not fp:
+        return
+    try:
+        with open(SEEN, encoding="utf-8") as f:
+            if f.read().strip() == fp:
+                return
+    except OSError:
+        pass
+    os.makedirs(os.path.dirname(SEEN), exist_ok=True)
+    with open(SEEN, "w", encoding="utf-8") as f:
+        f.write(fp + "\n")
+    gui()
+
+
+def report():
+    ctx = collect()
+    print(D.render_report(ctx["devs"], D.pci_names(), ctx["plan"], ctx["cpu"], ctx["virt"],
+                          D.secure_boot_enabled(), ctx["nv"]))
+
+
+def auto():
+    ctx = collect()
+    pkgs = sorted({p for i in ctx["plan"] if i["id"] != "fwupd" for p in i["missing"]})
+    if not pkgs:
+        print("Nada a instalar: os drivers recomendados já estão instalados.")
+        return 0
+    print("Instalando:", " ".join(pkgs))
+    cmd = [HELPER, "install", *pkgs]
+    if os.geteuid() != 0:
+        cmd.insert(0, "pkexec")
+    return subprocess.call(cmd)
+
+
+def main(argv):
+    arg = argv[1] if len(argv) > 1 else ""
+    if arg in ("-h", "--help"):
+        print(__doc__)
+    elif arg == "--report":
+        report()
+    elif arg == "--auto":
+        return auto()
+    elif arg == "--newer":
+        newer()
+    elif arg == "--firmware":
+        firmware()
+    elif arg == "--check":
+        check()
+    elif arg == "":
+        gui()
+    else:
+        print(__doc__, file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

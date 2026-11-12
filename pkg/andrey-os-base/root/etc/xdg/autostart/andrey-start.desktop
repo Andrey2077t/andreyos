@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Menu Iniciar do Andrey OS
+Exec=andrey-start --daemon
+Terminal=false
+NoDisplay=true
+X-MATE-Autostart-enabled=true
+X-MATE-Autostart-Delay=1

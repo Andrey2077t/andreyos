@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Testar teclas engolidas (Andrey OS)
+Exec=andrey-keys --heal
+Terminal=false
+NoDisplay=true
+X-MATE-Autostart-enabled=true
+X-MATE-Autostart-Delay=10
