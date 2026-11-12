@@ -1,0 +1,19 @@
+name: Testes
+
+# Roda a cada push/PR: sintaxe dos scripts, shellcheck, compilacao da UI, testes unitarios e o pacote .deb.
+on:
+  push:
+  pull_request:
+
+jobs:
+  tests:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Instalar ferramentas
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y shellcheck g++ pkg-config libcairo2-dev libx11-dev dpkg-dev
+      - name: Rodar tests/run.sh
+        run: bash tests/run.sh

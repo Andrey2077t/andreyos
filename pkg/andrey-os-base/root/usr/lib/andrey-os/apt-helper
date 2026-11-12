@@ -1,0 +1,56 @@
+#!/bin/bash
+# Roda como root (via pkexec) a pedido da Loja de Aplicativos. So aceita as operacoes abaixo.
+#   apt-helper update
+#   apt-helper install PACOTE...
+#   apt-helper install-i386 PACOTE...     (habilita a arquitetura i386 antes: Steam, Wine)
+#   apt-helper remove PACOTE...
+#   apt-helper install-deb ARQUIVO.deb
+export DEBIAN_FRONTEND=noninteractive
+set -e
+cmd="${1:-}"; shift || true
+
+valid() { [[ "$1" =~ ^[a-z0-9][a-z0-9+.-]*$ ]] || { echo "Nome de pacote invalido: $1" >&2; exit 2; }; }
+need_lists() {
+    # sem indices do Debian (ISO limpa) nao ha o que instalar: atualiza primeiro.
+    # So conta indice de repositorio normal (".../dists/..." vira "_dists_" no nome do arquivo). O repo do
+    # Andrey OS e "flat" e, depois de "Atualizar Andrey OS", deixa um *_Packages em lists/ que enganava
+    # o teste antigo: a Loja nao rodava o apt-get update e dizia "pacote nao encontrado".
+    if ! compgen -G '/var/lib/apt/lists/*_dists_*Packages*' >/dev/null; then
+        apt-get update
+    fi
+}
+
+case "$cmd" in
+update)
+    apt-get update ;;
+install|install-i386)
+    [ "$#" -ge 1 ] || exit 2
+    for p in "$@"; do valid "$p"; done
+    if [ "$cmd" = install-i386 ]; then
+        dpkg --add-architecture i386
+        apt-get update
+        echo "steam steam/question select I AGREE" | debconf-set-selections 2>/dev/null || true
+        echo "steam steam/license note" | debconf-set-selections 2>/dev/null || true
+    else
+        need_lists
+    fi
+    apt-get install -y "$@" ;;
+remove)
+    [ "$#" -ge 1 ] || exit 2
+    for p in "$@"; do valid "$p"; done
+    # recusa se a remocao arrastaria o proprio sistema junto
+    if apt-get -s remove "$@" 2>/dev/null | grep -Eq '^Remv (andrey-os-base|mate-desktop-environment|mate-panel|marco|lightdm|network-manager|xorg|systemd) '; then
+        echo "Recusado: remover isso quebraria o sistema." >&2; exit 3
+    fi
+    apt-get remove -y "$@" ;;
+install-deb)
+    f="${1:-}"
+    [ -f "$f" ] && [[ "$f" == *.deb ]] || { echo "Arquivo .deb invalido." >&2; exit 2; }
+    dpkg-deb -I "$f" >/dev/null 2>&1 || { echo "Esse arquivo nao e um pacote .deb valido." >&2; exit 2; }
+    need_lists
+    tmp=$(mktemp -d /var/tmp/andrey-deb.XXXXXX); trap 'rm -rf "$tmp"' EXIT
+    cp -- "$f" "$tmp/pacote.deb"; chmod 755 "$tmp"; chmod 644 "$tmp/pacote.deb"
+    apt-get install -y "$tmp/pacote.deb" ;;
+*)
+    echo "uso: apt-helper update|install|install-i386|remove|install-deb ..." >&2; exit 2 ;;
+esac
