@@ -1,6 +1,6 @@
 {
-  "version": "0.1.8",
-  "previous": "0.1.7",
-  "notes": "Adicionado Desinstalar Programas + Programas Essenciais",
-  "date": "2026-11-13T11:19:54Z"
+  "version": "0.1.9",
+  "previous": "0.1.8",
+  "notes": "Adicionado suporte ao bluetooth",
+  "date": "2026-11-13T20:26:56Z"
 }
