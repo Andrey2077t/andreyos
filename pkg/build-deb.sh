@@ -44,6 +44,7 @@ fi
 ARCH=all; QTDEPS=""
 if command -v g++ >/dev/null 2>&1 && pkg-config --exists Qt6Widgets Qt6Svg 2>/dev/null; then
     echo "==> Compilando andrey-uninstall (Qt6)"
+    # shellcheck disable=SC2046
     g++ -std=c++17 -O2 -fPIC -Wall -Wextra ui/andrey_uninstall.cpp -o "$STAGE/usr/bin/andrey-uninstall" \
         $(pkg-config --cflags --libs Qt6Widgets Qt6Svg)
     strip "$STAGE/usr/bin/andrey-uninstall" 2>/dev/null || true
