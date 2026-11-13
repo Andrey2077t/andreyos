@@ -1,0 +1,13 @@
+Package: andrey-os-base
+Version: @VERSION@
+Section: misc
+Priority: optional
+Architecture: @ARCH@
+Maintainer: Andrey OS <andrey-os@localhost>
+Depends: mate-panel, mate-applets, libglib2.0-bin, curl, jq, zenity, pkexec, python3, python3-gi, gir1.2-gtk-3.0, librsvg2-common, chromium | chromium-browser | google-chrome-stable, wmctrl@QTDEPS@
+Recommends: plymouth
+Installed-Size: @SIZE@
+Description: Identidade visual e atualizador do Andrey OS
+ Paineis (barra superior e docks), icones vermelhos, wallpaper, tema Plymouth,
+ branding do instalador, conky, a janela "Desinstalar Programas" (Qt6) e o atualizador
+ "andrey-update", que busca novas versoes no repositorio apt do projeto (GitHub Pages).
