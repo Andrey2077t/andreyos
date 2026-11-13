@@ -1,6 +1,6 @@
 {
-  "version": "0.1.7",
-  "previous": "0.1.6",
-  "notes": "Drivers e hardware: andrey-drivers, firmware, microcode, Mesa (0.1.7)",
-  "date": "2026-11-12T21:14:51Z"
+  "version": "0.1.8",
+  "previous": "0.1.7",
+  "notes": "Adicionado Desinstalar Programas + Programas Essenciais",
+  "date": "2026-11-13T11:19:54Z"
 }
