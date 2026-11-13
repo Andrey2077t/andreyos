@@ -1,6 +1,6 @@
 {
-  "version": "0.1.9",
-  "previous": "0.1.8",
-  "notes": "Adicionado suporte ao bluetooth",
-  "date": "2026-11-13T20:26:56Z"
+  "version": "0.1.10",
+  "previous": "0.1.9",
+  "notes": "removido o dock lateral e adicionado f2 para renomar",
+  "date": "2026-11-13T21:22:52Z"
 }
