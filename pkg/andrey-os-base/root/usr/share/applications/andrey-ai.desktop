@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Andrey AI
+GenericName=Assistente de IA
+Comment=Sua IA. Sem limites.
+Exec=andrey-ai %U
+Icon=andrey-ai
+Terminal=false
+Categories=Network;Utility;
+StartupWMClass=AndreyAI
+StartupNotify=true
+Keywords=ia;ai;inteligencia artificial;chat;assistente;gemini;groq;openrouter;andrey;

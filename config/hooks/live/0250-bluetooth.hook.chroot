@@ -1,0 +1,29 @@
+#!/bin/sh
+# Trava de build: melhor quebrar aqui do que entregar uma ISO sem Bluetooth.
+set -e
+
+for pkg in bluez bluez-firmware blueman bluez-obexd pulseaudio-module-bluetooth rfkill \
+           firmware-realtek firmware-atheros; do
+    if ! dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q 'install ok installed'; then
+        echo "ERRO: pacote '$pkg' ausente na imagem (suporte a Bluetooth)." >&2
+        exit 1
+    fi
+done
+
+# driver do kernel para os adaptadores USB (modulo btusb) e a regra que religa HID->HCI (CSR/Broadcom antigos)
+find /lib/modules /usr/lib/modules -name 'btusb.ko*' 2>/dev/null | grep -q . || {
+    echo "ERRO: modulo btusb ausente no kernel da imagem." >&2; exit 1; }
+[ -e /usr/lib/udev/hid2hci ] || [ -e /lib/udev/hid2hci ] || echo "AVISO: hid2hci ausente (adaptadores em modo HID nao trocam sozinhos)." >&2
+
+for f in /usr/bin/andrey-bluetooth /usr/lib/andrey-os/bluetooth-helper /usr/lib/modprobe.d/andrey-bluetooth.conf \
+         /usr/lib/udev/rules.d/80-andrey-bluetooth.rules; do
+    [ -e "$f" ] || { echo "ERRO: $f ausente depois de instalar o andrey-os-base." >&2; exit 1; }
+done
+
+# o postinst do andrey-os-base ajusta o main.conf; confere que pegou
+grep -Eq '^JustWorksRepairing *= *always' /etc/bluetooth/main.conf || {
+    echo "ERRO: /etc/bluetooth/main.conf nao recebeu os padroes do Andrey OS." >&2; exit 1; }
+
+# garante o servico ligado (o udev tambem o chama quando um adaptador aparece, inclusive ao espetar o USB)
+systemctl enable bluetooth.service >/dev/null 2>&1 || true
+exit 0

@@ -1,0 +1,103 @@
+#!/bin/bash
+# Roda como root (via pkexec ou pelo postinst) a pedido do andrey-bluetooth. So aceita as operacoes abaixo.
+#   bluetooth-helper defaults        ajusta o /etc/bluetooth/main.conf (liga sozinho, repareia fone/mouse barato)
+#   bluetooth-helper fix             libera rfkill, recarrega o driver, religa o adaptador USB e reinicia o bluetoothd
+#   bluetooth-helper compat on|off   modo compatibilidade (so BR/EDR) para adaptador falsificado/antigo; "off" volta ao normal
+set -u
+CONF=/etc/bluetooth/main.conf
+
+# conf_set SECAO CHAVE VALOR ARQUIVO: troca "CHAVE = ..." (comentada ou nao); se nao existir, cria dentro da secao
+conf_set() {
+    local sec="$1" key="$2" val="$3" f="$4"
+    [ -f "$f" ] || return 0
+    if grep -Eq "^[#[:space:]]*${key}[[:space:]]*=" "$f"; then
+        sed -i "s|^[#[:space:]]*${key}[[:space:]]*=.*|${key} = ${val}|" "$f"
+    elif grep -q "^\[${sec}\]" "$f"; then
+        sed -i "/^\[${sec}\]/a ${key} = ${val}" "$f"
+    else
+        printf '\n[%s]\n%s = %s\n' "$sec" "$key" "$val" >> "$f"
+    fi
+}
+
+has_hci() {
+    local h
+    for h in /sys/class/bluetooth/hci[0-9]*; do
+        [ -e "$h" ] && [[ "$h" != *:* ]] && return 0
+    done
+    return 1
+}
+
+restart_service() {
+    if command -v systemctl >/dev/null 2>&1 && [ -d /run/systemd/system ]; then
+        systemctl restart bluetooth.service 2>&1 || true
+    fi
+}
+
+# adaptadores USB Bluetooth (classe e0/01/01): imprime o nome do dispositivo (ex.: 1-1.2)
+usb_bt_devices() {
+    local i parent
+    for i in /sys/bus/usb/devices/*:*; do
+        [ -r "$i/bInterfaceClass" ] || continue
+        [ "$(cat "$i/bInterfaceClass" 2>/dev/null)" = e0 ] || continue
+        [ "$(cat "$i/bInterfaceSubClass" 2>/dev/null)" = 01 ] || continue
+        [ "$(cat "$i/bInterfaceProtocol" 2>/dev/null)" = 01 ] || continue
+        parent="$(basename "${i%:*}")"
+        [[ "$parent" =~ ^[0-9]+-[0-9.]+$ ]] && echo "$parent"
+    done | sort -u
+}
+
+do_fix() {
+    echo "==> Liberando o Bluetooth (rfkill)"
+    command -v rfkill >/dev/null 2>&1 && rfkill unblock bluetooth 2>&1
+    echo "==> Carregando o driver (btusb)"
+    modprobe btusb 2>&1
+
+    if ! has_hci; then
+        local dev
+        for dev in $(usb_bt_devices); do
+            echo "==> Adaptador $dev sem controlador ativo: religando a porta USB"
+            echo "$dev" > /sys/bus/usb/drivers/usb/unbind 2>/dev/null
+            sleep 1
+            echo "$dev" > /sys/bus/usb/drivers/usb/bind 2>/dev/null
+        done
+    fi
+
+    echo "==> Reiniciando o servico bluetooth"
+    restart_service
+
+    local n
+    for n in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16; do
+        has_hci && break
+        sleep 0.5
+    done
+    if has_hci; then
+        command -v bluetoothctl >/dev/null 2>&1 && timeout 10 bluetoothctl power on 2>&1
+        echo "ANDREY-BT-OK"
+        return 0
+    fi
+    echo "Nenhum controlador Bluetooth apareceu." >&2
+    if [ -z "$(usb_bt_devices)" ]; then
+        echo "Nenhum adaptador USB Bluetooth foi detectado: confira se ele esta bem encaixado (teste outra porta USB)." >&2
+    else
+        echo "O adaptador foi visto, mas nao subiu: provavelmente falta firmware. Com internet, rode 'andrey-drivers'." >&2
+        echo "Adaptador falsificado/antigo: tente 'andrey-bluetooth --compat'." >&2
+    fi
+    return 1
+}
+
+cmd="${1:-}"; shift || true
+case "$cmd" in
+defaults)
+    conf_set Policy  AutoEnable        true   "$CONF"
+    conf_set General JustWorksRepairing always "$CONF" ;;
+fix)
+    do_fix ;;
+compat)
+    case "${1:-on}" in
+        on)  conf_set General ControllerMode bredr "$CONF"; restart_service; echo "Modo compatibilidade ligado (so BR/EDR)." ;;
+        off) conf_set General ControllerMode dual  "$CONF"; restart_service; echo "Modo compatibilidade desligado (dual)." ;;
+        *)   echo "uso: bluetooth-helper compat on|off" >&2; exit 2 ;;
+    esac ;;
+*)
+    echo "uso: bluetooth-helper defaults|fix|compat on|off" >&2; exit 2 ;;
+esac
