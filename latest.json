@@ -1,6 +1,6 @@
 {
-  "version": "0.2.5",
-  "previous": "0.2.4",
-  "notes": "adicionado andrey-audio-heal que sobe no login junto com o sistema",
-  "date": "2026-11-14T17:54:44Z"
+  "version": "0.2.6",
+  "previous": "0.2.5",
+  "notes": "Correção de segurança",
+  "date": "2026-11-14T22:23:05Z"
 }
