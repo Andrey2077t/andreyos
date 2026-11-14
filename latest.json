@@ -1,6 +1,6 @@
 {
-  "version": "0.1.10",
-  "previous": "0.1.9",
-  "notes": "removido o dock lateral e adicionado f2 para renomar",
-  "date": "2026-11-13T21:22:52Z"
+  "version": "0.2.0",
+  "previous": "0.1.10",
+  "notes": "Implementação da barra de volume",
+  "date": "2026-11-14T01:45:23Z"
 }

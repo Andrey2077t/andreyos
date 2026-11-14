@@ -1,23 +1,4 @@
 Package: andrey-os-base
-Version: 0.1.1
-Architecture: all
-Maintainer: Andrey OS <andrey-os@localhost>
-Installed-Size: 1056
-Depends: mate-panel, mate-applets, libglib2.0-bin, curl, jq, zenity, pkexec, python3, python3-gi, gir1.2-gtk-3.0, librsvg2-common
-Recommends: plymouth
-Filename: pool/andrey-os-base_0.1.1_all.deb
-Size: 326736
-MD5sum: df5f8e2abd4b8649d5921dc7e2d19bb6
-SHA1: 2575e8c85d5e15c6852e0d9916f93a1d6c7b6226
-SHA256: a18f0173b62c4818ba4e1aebfa0c880f9de78683ced305d405b59186c0e2b3e1
-Section: misc
-Priority: optional
-Description: Identidade visual e atualizador do Andrey OS
- Paineis (barra superior e docks), icones vermelhos, wallpaper, tema Plymouth,
- branding do instalador, conky e o atualizador "andrey-update", que busca novas
- versoes no repositorio apt do projeto (GitHub Pages).
-
-Package: andrey-os-base
 Version: 0.1.10
 Architecture: amd64
 Maintainer: Andrey OS <andrey-os@localhost>
@@ -186,5 +167,24 @@ Priority: optional
 Description: Identidade visual e atualizador do Andrey OS
  Paineis (barra superior e docks), icones vermelhos, wallpaper, tema Plymouth,
  branding do instalador, conky, a janela "Desinstalar Programas" (Qt6) e o atualizador
+ "andrey-update", que busca novas versoes no repositorio apt do projeto (GitHub Pages).
+
+Package: andrey-os-base
+Version: 0.2.0
+Architecture: amd64
+Maintainer: Andrey OS <andrey-os@localhost>
+Installed-Size: 1448
+Depends: mate-panel, mate-applets, libglib2.0-bin, curl, jq, zenity, pkexec, python3, python3-gi, gir1.2-gtk-3.0, librsvg2-common, chromium | chromium-browser | google-chrome-stable, wmctrl, bluez, blueman, libqt6widgets6t64 | libqt6widgets6, libqt6svg6t64 | libqt6svg6, libqt6network6t64 | libqt6network6, qt6-qpa-plugins, libxcb-cursor0
+Recommends: plymouth, pulseaudio-module-bluetooth, bluez-obexd
+Filename: pool/andrey-os-base_0.2.0_amd64.deb
+Size: 420466
+MD5sum: bf789765c1853a883519918f7a771d48
+SHA1: 5bb77fee0a9485888c9a08b594d952ca104100e3
+SHA256: be7d3e3fbdb3927cb9284fca110018ed162a9fca3361702f4fc7f785c7f6529f
+Section: misc
+Priority: optional
+Description: Identidade visual e atualizador do Andrey OS
+ Paineis (barra superior e dock), icones vermelhos, wallpaper, tema Plymouth,
+ branding do instalador, conky, a janela "Desinstalar Programas" (Qt6), o Display de volume (Qt6) e o atualizador
  "andrey-update", que busca novas versoes no repositorio apt do projeto (GitHub Pages).
 
