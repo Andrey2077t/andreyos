@@ -1,0 +1,33 @@
+#!/bin/sh
+# Trava de build: melhor quebrar aqui do que entregar uma ISO que nao extrai/compacta arquivos.
+set -e
+
+for pkg in engrampa zip unzip 7zip unrar xz-utils bzip2 zstd; do
+    if ! dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q 'install ok installed'; then
+        echo "ERRO: pacote '$pkg' ausente na imagem (suporte a compactar/extrair arquivos)." >&2
+        exit 1
+    fi
+done
+
+# O Engrampa procura "7z", "7za" ou "7zr". Em algumas versoes do pacote 7zip so existe o "7zz":
+# cria os nomes que faltarem apontando para ele (o binario funciona igual com qualquer nome).
+if ! command -v 7z >/dev/null 2>&1 && ! command -v 7za >/dev/null 2>&1 && ! command -v 7zr >/dev/null 2>&1; then
+    if command -v 7zz >/dev/null 2>&1; then
+        ln -sf "$(command -v 7zz)" /usr/local/bin/7z
+        ln -sf "$(command -v 7zz)" /usr/local/bin/7za
+    fi
+fi
+
+for c in zip unzip tar gzip bzip2 xz zstd unrar; do
+    command -v "$c" >/dev/null 2>&1 || { echo "ERRO: comando '$c' ausente (suporte a arquivos)." >&2; exit 1; }
+done
+{ command -v 7z || command -v 7za || command -v 7zr; } >/dev/null 2>&1 || {
+    echo "ERRO: nenhum 7z/7za/7zr na imagem (.7z nao abriria)." >&2; exit 1; }
+[ -x /usr/bin/engrampa ] || { echo "ERRO: /usr/bin/engrampa ausente." >&2; exit 1; }
+
+# menu de botao direito do Caja (Extrair aqui / Comprimir...). Sem ele o Engrampa ainda abre pela janela,
+# entao so avisa em vez de quebrar o build.
+find /usr/lib /usr/lib64 -path '*caja/extensions-*' -name '*engrampa*' 2>/dev/null | grep -q . || \
+    echo "AVISO: extensao do Engrampa para o Caja nao encontrada (sem 'Extrair aqui' no botao direito)." >&2
+
+exit 0

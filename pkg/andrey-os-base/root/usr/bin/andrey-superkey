@@ -1,0 +1,143 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""Tecla SUPER (Windows) sozinha abre o Menu Iniciar do Andrey OS.
+
+Escuta o teclado de forma PASSIVA (extensão XRecord, mesma técnica do xcape):
+não rouba a tecla, então Super+E, Super+D, Super+L etc. continuam funcionando.
+O menu só abre se a tecla Super for apertada e solta sem nenhuma outra tecla
+ou clique no meio.
+"""
+import ctypes
+import fcntl
+import os
+import subprocess
+import sys
+import threading
+import time
+from ctypes import POINTER, Structure, c_int, c_ubyte, c_ulong, c_ushort, c_void_p
+
+sys.path.insert(0, "/usr/lib/andrey-os")
+import andrey_x as ax  # noqa: E402
+
+MAX_HOLD = 2.0          # segundos: acima disso não conta como "toque"
+START_NAME, START_PATH = "org.andreyos.Start", "/org/andreyos/Start"
+
+
+class R8(Structure):
+    _fields_ = [("first", c_ubyte), ("last", c_ubyte)]
+
+
+class R16(Structure):
+    _fields_ = [("first", c_ushort), ("last", c_ushort)]
+
+
+class ExtRange(Structure):
+    _fields_ = [("ext_major", R8), ("ext_minor", R16)]
+
+
+class RecordRange(Structure):
+    _fields_ = [("core_requests", R8), ("core_replies", R8),
+                ("ext_requests", ExtRange), ("ext_replies", ExtRange),
+                ("delivered_events", R8), ("device_events", R8), ("errors", R8),
+                ("client_started", c_int), ("client_died", c_int)]
+
+
+class InterceptData(Structure):
+    _fields_ = [("id_base", c_ulong), ("server_time", c_ulong), ("client_seq", c_ulong),
+                ("category", c_int), ("client_swapped", c_int),
+                ("data", POINTER(c_ubyte)), ("data_len", c_ulong)]
+
+
+CALLBACK = ctypes.CFUNCTYPE(None, c_void_p, POINTER(InterceptData))
+_bus = None
+
+
+def toggle_menu():
+    """Pede ao Menu Iniciar (residente) para abrir/fechar; se não houver, inicia um."""
+    global _bus
+    try:
+        from gi.repository import Gio, GLib
+        if _bus is None:
+            _bus = Gio.bus_get_sync(Gio.BusType.SESSION, None)
+        _bus.call_sync(START_NAME, START_PATH, "org.freedesktop.Application", "ActivateAction",
+                       GLib.Variant("(sava{sv})", ("toggle", [], {})), None,
+                       Gio.DBusCallFlags.NONE, 4000, None)
+    except Exception:
+        try:
+            subprocess.Popen(["/usr/bin/andrey-start", "--toggle"])
+        except OSError:
+            pass
+
+
+def main():
+    if ax.x11 is None or ax.xtst is None:
+        print("andrey-superkey: libX11/libXtst indisponíveis", file=sys.stderr)
+        return 1
+    if not os.environ.get("DISPLAY"):
+        return 0
+
+    lock_path = os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "andrey-superkey.lock")
+    lock = open(lock_path, "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        return 0  # já existe uma instância
+
+    ctrl, data = ax.open_display(), ax.open_display()
+    if not ctrl or not data:
+        print("andrey-superkey: sem conexão com o X (Wayland?)", file=sys.stderr)
+        return 1
+    ax.xtst.XRecordAllocRange.restype = POINTER(RecordRange)
+    ax.xtst.XRecordCreateContext.restype = c_ulong
+    ax.xtst.XRecordCreateContext.argtypes = [c_void_p, c_int, POINTER(c_ulong), c_int,
+                                             POINTER(POINTER(RecordRange)), c_int]
+    ax.xtst.XRecordEnableContext.argtypes = [c_void_p, c_ulong, CALLBACK, c_void_p]
+    ax.xtst.XRecordFreeData.argtypes = [POINTER(InterceptData)]
+
+    supers = {ax.x11.XKeysymToKeycode(ctrl, ax.KEYSYMS["Super_L"]),
+              ax.x11.XKeysymToKeycode(ctrl, ax.KEYSYMS["Super_R"])} - {0}
+    if not supers:
+        return 0
+
+    rng = ax.xtst.XRecordAllocRange()
+    rng.contents.device_events.first = 2   # KeyPress
+    rng.contents.device_events.last = 5    # ButtonRelease
+    clients = (c_ulong * 1)(3)             # XRecordAllClients
+    ranges = (POINTER(RecordRange) * 1)(rng)
+    ctx = ax.xtst.XRecordCreateContext(ctrl, 0, clients, 1, ranges, 1)
+    if not ctx:
+        print("andrey-superkey: extensão RECORD indisponível", file=sys.stderr)
+        return 1
+    ax.x11.XSync(ctrl, 0)
+
+    st = {"held": None, "other": False, "t": 0.0}
+
+    def on_data(_closure, ptr):
+        try:
+            d = ptr.contents
+            if d.category != 0 or d.data_len < 1:
+                return
+            ev, code = d.data[0] & 0x7F, d.data[1]
+            if ev == 2:                                  # KeyPress
+                if code in supers:
+                    if st["held"] is None:
+                        st.update(held=code, other=False, t=time.monotonic())
+                elif st["held"] is not None:
+                    st["other"] = True
+            elif ev == 3:                                # KeyRelease
+                if code in supers and st["held"] == code:
+                    if not st["other"] and time.monotonic() - st["t"] < MAX_HOLD:
+                        threading.Thread(target=toggle_menu, daemon=True).start()
+                    st["held"] = None
+            elif ev in (4, 5) and st["held"] is not None:  # clique com Super apertado
+                st["other"] = True
+        finally:
+            ax.xtst.XRecordFreeData(ptr)
+
+    cb = CALLBACK(on_data)                              # precisa continuar referenciado
+    ax.xtst.XRecordEnableContext(data, ctx, cb, None)   # bloqueia aqui
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

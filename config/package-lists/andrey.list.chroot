@@ -1,0 +1,134 @@
+# ---- Desktop (MATE: mesmo layout de barra superior Aplicativos/Locais/Sistema)
+mate-desktop-environment-core
+mate-desktop-environment-extras
+mate-tweak
+mate-applets
+mate-media
+mate-panel
+mate-notification-daemon
+mate-polkit
+marco
+lightdm
+lightdm-gtk-greeter
+dbus-x11
+xorg
+xserver-xorg-input-all
+
+# ---- Aplicativos do dock
+firefox-esr
+firefox-esr-l10n-pt-br
+# Andrey AI (andreyai.pages.dev) e Andrey Music (andreymusic.pages.dev) abrem como aplicativos proprios:
+# Chromium em modo --app (andrey-ai, andrey-music), cada um com perfil e janela separados
+# wmctrl: traz a janela do Andrey AI para a frente se ja estiver aberta
+chromium
+chromium-l10n
+wmctrl
+mate-terminal
+caja
+mate-system-monitor
+mate-control-center
+mate-menu
+
+# ---- Compactar e extrair arquivos (nativo: Engrampa no Caja, botao direito > Extrair aqui / Comprimir)
+# engrampa: janela + menu de contexto do Caja. Os "backends" abaixo sao o que ele chama de verdade
+# (com --apt-recommends false nenhum vem sozinho): zip/unzip (.zip), 7zip (.7z e varios outros),
+# unrar (.rar, vem do non-free), xz/bzip2/zstd (.tar.xz .tar.bz2 .tar.zst). tar e gzip ja sao Essential.
+# lzop/cpio/arj: formatos antigos que o Engrampa tambem abre. Conferido pelo hook 0260-archive.
+engrampa
+zip
+unzip
+7zip
+unrar
+xz-utils
+bzip2
+zstd
+lzop
+cpio
+arj
+
+# ---- Painel de sistema (réplica do widget da direita)
+conky-all
+
+# ---- Visual
+fonts-inter
+fonts-noto-core
+adwaita-icon-theme
+gnome-themes-extra
+gnome-themes-extra-data
+plymouth
+plymouth-themes
+
+# ---- Rede, som, energia
+network-manager
+network-manager-gnome
+pulseaudio
+pavucontrol
+pulseaudio-utils
+alsa-utils
+mate-power-manager
+
+# ---- Instalador: ferramentas de disco (sem recomendados, nada disso vem sozinho)
+# fdisk traz o sfdisk (o Calamares/KPMcore cria as particoes com ele); dosfstools = mkfs.fat da particao EFI
+fdisk
+gdisk
+parted
+dosfstools
+e2fsprogs
+rsync
+squashfs-tools
+grub-common
+grub2-common
+grub-pc-bin
+grub-efi-amd64-bin
+efibootmgr
+os-prober
+
+# ---- Instalador gráfico
+calamares
+calamares-settings-debian
+
+# ---- Conta/login da sessão live (assistente andrey-firstboot cria a conta; nada vem pronto)
+# Com --apt-recommends false nada disso vem sozinho, então fica explícito:
+whiptail
+kbd
+passwd
+libpam-systemd
+dbus-user-session
+polkitd
+pkexec
+
+# ---- Atualizador (andrey-update), tela "Sobre" e pacote andrey-os-base
+zenity
+jq
+python3-gi
+gir1.2-gtk-3.0
+librsvg2-common
+
+# ---- Ferramentas que os scripts do andrey-os-base chamam (com --apt-recommends false nada disso vem sozinho)
+# dconf-cli: andrey-keys/session-setup (lista e limpa atalhos)   mate-utils: mate-screenshot (Print, Super+Shift+S)
+# xdg-user-dirs/xdg-utils: pasta Modelos e andrey-lock   psmisc: killall (recarga dos paineis)
+# libxtst6: andrey-superkey (XRecord) e andrey-clipboard (colar com XTest)
+dconf-cli
+mate-utils
+xdg-user-dirs
+xdg-utils
+psmisc
+libxtst6
+
+# ---- Dicionario de senhas (sem isso o instalador mostra "error loading dictionary")
+cracklib-runtime
+wamerican
+
+# ---- Utilitários
+sudo
+locales
+console-setup
+keyboard-configuration
+live-boot
+live-config
+live-config-systemd
+bash-completion
+git
+curl
+nano
+htop

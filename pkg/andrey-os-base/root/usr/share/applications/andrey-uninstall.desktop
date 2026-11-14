@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Desinstalar Programas
+GenericName=Remover programas
+Comment=Remove programas instalados com segurança
+Exec=andrey-uninstall
+Icon=user-trash
+Terminal=false
+Categories=System;Settings;
+Keywords=desinstalar;remover;apagar;programas;apps;uninstall;
+StartupWMClass=andrey-uninstall

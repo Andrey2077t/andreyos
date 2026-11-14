@@ -1,0 +1,41 @@
+#!/bin/sh
+# Andrey AI como aplicativo do Andrey OS: abre https://andreyai.pages.dev/ numa janela propria
+# (sem abas e sem barra de enderecos), com perfil e icone proprios, separado do navegador.
+#   andrey-ai            abre o aplicativo (se ja estiver aberto, so traz a janela para a frente)
+# Usa o Chromium em modo --app. Variavel opcional: ANDREY_AI_URL (outro endereco).
+URL="${ANDREY_AI_URL:-https://andreyai.pages.dev/}"
+CLASS="AndreyAI"
+PROFILE="${XDG_CONFIG_HOME:-$HOME/.config}/andrey-ai"
+
+BROWSER=""
+for b in chromium chromium-browser google-chrome-stable google-chrome; do
+    if command -v "$b" >/dev/null 2>&1; then BROWSER="$b"; break; fi
+done
+if [ -z "$BROWSER" ]; then
+    zenity --warning --no-wrap --title="Andrey AI" \
+        --text="O Andrey AI precisa do Chromium para abrir como aplicativo.\nInstale o \"Chromium\" pela Loja de Aplicativos.\n\nPor enquanto vou abrir no navegador." 2>/dev/null || true
+    exec xdg-open "$URL"
+fi
+
+# ja esta aberto: traz a janela para a frente em vez de abrir outra
+if pgrep -f -- "--user-data-dir=$PROFILE" >/dev/null 2>&1 && command -v wmctrl >/dev/null 2>&1; then
+    if wmctrl -x -l 2>/dev/null | grep -qi "andreyai"; then
+        wmctrl -x -a "andreyai" 2>/dev/null && exit 0
+    fi
+fi
+
+# primeira vez: usa a barra de titulo do sistema (igual aos outros aplicativos do Andrey OS)
+if [ ! -e "$PROFILE/Default/Preferences" ]; then
+    mkdir -p "$PROFILE/Default"
+    printf '%s\n' '{"browser":{"custom_chrome_frame":false}}' > "$PROFILE/Default/Preferences"
+fi
+
+exec "$BROWSER" \
+    --app="$URL" \
+    --class="$CLASS" \
+    --user-data-dir="$PROFILE" \
+    --no-first-run --no-default-browser-check \
+    --disable-session-crashed-bubble --hide-crash-restore-bubble \
+    --password-store=basic \
+    --lang=pt-BR \
+    --disable-features=Translate,MediaRouter

@@ -1,0 +1,15 @@
+#!/bin/sh
+# Trava de build: melhor quebrar aqui do que entregar uma ISO sem firmware/drivers.
+set -e
+
+for pkg in firmware-linux firmware-misc-nonfree intel-microcode amd64-microcode libgl1-mesa-dri mesa-vulkan-drivers \
+           nvidia-detect pciutils mokutil fwupd; do
+    if ! dpkg-query -W -f='${Status}' "$pkg" 2>/dev/null | grep -q 'install ok installed'; then
+        echo "ERRO: pacote '$pkg' ausente na imagem (suporte a hardware/drivers)." >&2
+        exit 1
+    fi
+done
+for f in /usr/bin/andrey-drivers /usr/lib/andrey-os/drivers-helper /usr/lib/andrey-os/andrey_drivers.py; do
+    [ -e "$f" ] || { echo "ERRO: $f ausente depois de instalar o andrey-os-base." >&2; exit 1; }
+done
+exit 0
