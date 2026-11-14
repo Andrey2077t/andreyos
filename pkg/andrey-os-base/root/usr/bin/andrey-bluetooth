@@ -1,0 +1,84 @@
+#!/bin/bash
+# Bluetooth do Andrey OS.
+#   andrey-bluetooth             abre o gerenciador (Blueman)
+#   andrey-bluetooth --check     diagnostico em texto (sem root)
+#   andrey-bluetooth --fix       conserta: libera rfkill, recarrega o driver, religa o adaptador USB
+#   andrey-bluetooth --compat [on|off]   modo compatibilidade para adaptador falsificado/antigo
+#   (--gui no fim mostra o resultado numa janela)
+HELPER=/usr/lib/andrey-os/bluetooth-helper
+
+check() {
+    local i parent v p drv found=0 h hh
+    echo "== Adaptadores USB"
+    for i in /sys/bus/usb/devices/*:*; do
+        [ -r "$i/bInterfaceClass" ] || continue
+        [ "$(cat "$i/bInterfaceClass" 2>/dev/null)" = e0 ] || continue
+        [ "$(cat "$i/bInterfaceSubClass" 2>/dev/null)" = 01 ] || continue
+        [ "$(cat "$i/bInterfaceProtocol" 2>/dev/null)" = 01 ] || continue
+        parent="${i%:*}"
+        v="$(cat "$parent/idVendor" 2>/dev/null)"; p="$(cat "$parent/idProduct" 2>/dev/null)"
+        drv="$(basename "$(readlink "$i/driver" 2>/dev/null)" 2>/dev/null)"
+        echo "  $v:$p  [driver: ${drv:-nenhum}]"
+        found=1
+    done
+    [ "$found" = 1 ] || echo "  (nenhum adaptador USB Bluetooth visto; Bluetooth de notebook e interno e aparece abaixo)"
+
+    echo "== Controladores"
+    hh=0
+    for h in /sys/class/bluetooth/hci[0-9]*; do
+        [ -e "$h" ] && [[ "$h" != *:* ]] && { echo "  $(basename "$h")"; hh=1; }
+    done
+    [ "$hh" = 1 ] || echo "  (nenhum controlador ativo)"
+
+    echo "== rfkill"
+    if command -v rfkill >/dev/null 2>&1; then rfkill list bluetooth 2>&1 | sed 's/^/  /'; else echo "  rfkill ausente"; fi
+
+    echo "== Servico"
+    echo "  bluetooth.service: $(systemctl is-active bluetooth.service 2>/dev/null || echo desconhecido)"
+    if command -v bluetoothctl >/dev/null 2>&1; then
+        timeout 5 bluetoothctl show 2>/dev/null | grep -E 'Controller|Name:|Powered:|Discoverable:' | sed 's/^/  /'
+    fi
+
+    echo "== Kernel (ultimas linhas)"
+    dmesg 2>/dev/null | grep -iE 'bluetooth|btusb|hci[0-9]' | tail -n 8 | sed 's/^/  /' || true
+
+    echo "== Dica"
+    if [ "$hh" = 1 ]; then
+        echo "  Controlador ativo. Se nao conecta, tente: andrey-bluetooth --fix"
+    elif [ "$found" = 1 ]; then
+        echo "  Adaptador visto, mas sem controlador: rode 'andrey-bluetooth --fix' e, com internet, 'andrey-drivers' (firmware)."
+    else
+        echo "  Nenhum adaptador: teste outra porta USB ou rode 'andrey-bluetooth --fix'."
+    fi
+}
+
+run() {
+    local gui=0 args=() a
+    for a in "$@"; do [ "$a" = --gui ] && gui=1 || args+=("$a"); done
+    local out
+    out="$(mktemp)"
+    case "${args[0]:-}" in
+        --check)  check >"$out" 2>&1 ;;
+        --fix)    pkexec "$HELPER" fix >"$out" 2>&1 ;;
+        --compat) pkexec "$HELPER" compat "${args[1]:-on}" >"$out" 2>&1 ;;
+        *) rm -f "$out"; return 2 ;;
+    esac
+    local rc=$?
+    if [ "$gui" = 1 ] && command -v zenity >/dev/null 2>&1; then
+        zenity --text-info --title="Bluetooth" --width=560 --height=420 --filename="$out" 2>/dev/null
+    else
+        cat "$out"
+    fi
+    rm -f "$out"
+    return $rc
+}
+
+case "${1:-}" in
+    "")
+        if command -v blueman-manager >/dev/null 2>&1; then exec blueman-manager; fi
+        echo "Blueman nao esta instalado." >&2; exit 1 ;;
+    --check|--fix|--compat) run "$@"; exit $? ;;
+    -h|--help)
+        sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    *) echo "uso: andrey-bluetooth [--check|--fix|--compat [on|off]] [--gui]" >&2; exit 2 ;;
+esac
