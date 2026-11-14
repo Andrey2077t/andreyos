@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Ctrl+1..9 troca de aba depois de clicar na barra superior (Andrey OS)
+Exec=andrey-tabs --daemon
+Terminal=false
+NoDisplay=true
+X-MATE-Autostart-enabled=true
+X-MATE-Autostart-Delay=2

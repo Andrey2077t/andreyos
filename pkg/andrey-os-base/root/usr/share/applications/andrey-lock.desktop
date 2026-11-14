@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Bloquear a tela
+Exec=andrey-lock
+Icon=system-lock-screen
+Terminal=false
+Categories=System;
+Keywords=bloquear;trancar;lock;

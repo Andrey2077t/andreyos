@@ -1,0 +1,278 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""Histórico da área de transferência (Super+V), como no Windows 11.
+
+  andrey-clipboard --daemon   fica residente guardando o que você copia
+  andrey-clipboard --toggle   abre/fecha a lista (atalho Super+V)
+
+Clique num item para colar na janela em que você estava (Ctrl+V, ou Ctrl+Shift+V em
+terminais). O histórico fica SÓ na memória (nada vai para o disco) e some ao sair da sessão.
+"""
+import sys
+import time
+
+import gi
+
+gi.require_version("Gtk", "3.0")
+gi.require_version("Gdk", "3.0")
+from gi.repository import Gdk, Gio, GLib, Gtk  # noqa: E402
+
+sys.path.insert(0, "/usr/lib/andrey-os")
+try:
+    import andrey_x as ax  # noqa: E402
+except ImportError:
+    ax = None
+
+try:
+    gi.require_version("GdkX11", "3.0")
+    from gi.repository import GdkX11  # noqa: E402
+except (ValueError, ImportError):
+    GdkX11 = None
+
+APP_ID = "org.andreyos.Clipboard"
+MAX_ITEMS = 30
+MAX_CHARS = 200000       # ignora cópias gigantes (não vale guardar na memória)
+
+CSS = b"""
+window.clip-window {
+    background-color: rgba(11, 3, 6, 0.97);
+    border: 1px solid rgba(237, 18, 38, 0.50);
+    border-radius: 14px;
+    color: #ededf0;
+}
+.clip-window .title { font-weight: bold; }
+.clip-window .dim { color: rgba(237, 237, 240, 0.55); font-size: 9pt; }
+.clip-window list, .clip-window list row { background-color: transparent; }
+.clip-window list row { border-radius: 8px; padding: 2px 6px; }
+.clip-window list row:hover { background-color: rgba(237, 18, 38, 0.18); }
+.clip-window list row:selected { background-color: #ed1226; color: #fff; }
+.clip-window button {
+    background-image: none; background-color: transparent; border: 1px solid transparent;
+    box-shadow: none; color: #ededf0; border-radius: 8px; padding: 2px 8px;
+}
+.clip-window button:hover { background-color: rgba(237, 18, 38, 0.25); }
+"""
+
+
+def one_line(text, n=90):
+    s = " ".join(text.split())
+    return s if len(s) <= n else s[:n - 1] + "…"
+
+
+
+class ClipWindow(Gtk.Window):
+    def __init__(self, app):
+        super().__init__(type=Gtk.WindowType.TOPLEVEL)
+        self.app = app
+        self.set_application(app)
+        self.set_title("Área de transferência")
+        self.set_decorated(False)
+        self.set_resizable(False)
+        self.set_skip_taskbar_hint(True)
+        self.set_skip_pager_hint(True)
+        self.set_keep_above(True)
+        self.set_role("andrey-clipboard")
+        self.get_style_context().add_class("clip-window")
+        vis = self.get_screen().get_rgba_visual()
+        if vis is not None:
+            self.set_visual(vis)
+        self.set_size_request(380, -1)
+
+        self.items = []
+        self.hidden_at = 0.0
+        self.ignore_next = None
+        self.clip = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
+        self.clip.connect("owner-change", self._on_owner_change)
+
+        outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        outer.set_margin_top(10)
+        outer.set_margin_bottom(10)
+        outer.set_margin_start(10)
+        outer.set_margin_end(10)
+        self.add(outer)
+        head = Gtk.Box()
+        t = Gtk.Label(label="Área de transferência", xalign=0)
+        t.get_style_context().add_class("title")
+        head.pack_start(t, True, True, 4)
+        clear = Gtk.Button(label="Limpar tudo")
+        clear.connect("clicked", lambda *_: self._clear())
+        head.pack_end(clear, False, False, 0)
+        outer.pack_start(head, False, False, 0)
+
+        self.sc = Gtk.ScrolledWindow()
+        self.sc.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.sc.set_min_content_height(80)
+        self.sc.set_max_content_height(420)
+        self.sc.set_propagate_natural_height(True)
+        self.list = Gtk.ListBox()
+        self.list.set_selection_mode(Gtk.SelectionMode.SINGLE)
+        self.list.connect("row-activated", self._on_activated)
+        self.sc.add(self.list)
+        outer.pack_start(self.sc, True, True, 0)
+        self.empty = Gtk.Label(label="Nada copiado ainda.\nCopie algo (Ctrl+C) e ele aparece aqui.")
+        self.empty.get_style_context().add_class("dim")
+        self.empty.set_justify(Gtk.Justification.CENTER)
+        self.empty.set_margin_top(14)
+        self.empty.set_margin_bottom(14)
+        outer.pack_start(self.empty, False, False, 0)
+        foot = Gtk.Label(label="Fica só na memória e some ao encerrar a sessão.", xalign=0)
+        foot.get_style_context().add_class("dim")
+        outer.pack_start(foot, False, False, 2)
+
+        self.connect("key-press-event", self._on_key)
+        self.connect("notify::is-active", self._on_active)
+        self.connect("delete-event", lambda *_: (self.hide_win(), True)[1])
+        self._capture_current()
+
+    # ----- captura -----
+    def _on_owner_change(self, _clip, _ev):
+        self._capture_current()
+
+    def _capture_current(self):
+        self.clip.request_text(self._got_text)
+
+    def _got_text(self, _clip, text):
+        if not text or not text.strip() or len(text) > MAX_CHARS:
+            return
+        if self.ignore_next is not None and text == self.ignore_next:
+            self.ignore_next = None
+            return
+        if text in self.items:
+            self.items.remove(text)
+        self.items.insert(0, text)
+        del self.items[MAX_ITEMS:]
+        if self.get_visible():
+            self._refill()
+
+    # ----- interface -----
+    def _refill(self):
+        for ch in self.list.get_children():
+            self.list.remove(ch)
+        for text in self.items:
+            row = Gtk.ListBoxRow()
+            row.text = text
+            hb = Gtk.Box(spacing=6)
+            lb = Gtk.Label(label=one_line(text), xalign=0)
+            lb.set_ellipsize(3)
+            lb.set_tooltip_text(text[:600])
+            hb.pack_start(lb, True, True, 4)
+            rm = Gtk.Button()
+            rm.set_relief(Gtk.ReliefStyle.NONE)
+            rm.set_tooltip_text("Remover do histórico")
+            rm.add(Gtk.Image.new_from_icon_name("window-close-symbolic", Gtk.IconSize.MENU))
+            rm.connect("clicked", lambda _b, t=text: self._remove(t))
+            hb.pack_end(rm, False, False, 0)
+            row.add(hb)
+            self.list.add(row)
+        self.list.show_all()
+        has = bool(self.items)
+        self.sc.set_visible(has)
+        self.empty.set_visible(not has)
+        first = self.list.get_row_at_index(0)
+        if first:
+            self.list.select_row(first)
+            first.grab_focus()
+
+    def _remove(self, text):
+        if text in self.items:
+            self.items.remove(text)
+        self._refill()
+
+    def _clear(self):
+        self.items = []
+        self.clip.clear()
+        self._refill()
+
+    def _on_activated(self, _lb, row):
+        self.paste(row.text)
+
+    def paste(self, text):
+        self.ignore_next = text
+        self.clip.set_text(text, -1)
+        self.clip.store()
+        if text in self.items:
+            self.items.remove(text)
+        self.items.insert(0, text)
+        self.hide_win()
+        GLib.timeout_add(180, self._send_paste)
+
+    def _send_paste(self):
+        if ax is not None:
+            ax.send_paste()
+        return False
+
+    def _on_key(self, _w, ev):
+        if ev.keyval == Gdk.KEY_Escape:
+            self.hide_win()
+            return True
+        if ev.keyval == Gdk.KEY_Delete:
+            row = self.list.get_selected_row()
+            if row:
+                self._remove(row.text)
+            return True
+        return False
+
+    def _on_active(self, *_):
+        if not self.is_active():
+            GLib.timeout_add(150, lambda: (self.get_visible() and not self.is_active() and self.hide_win(), False)[1])
+
+    # ----- mostrar / esconder -----
+    def show_win(self):
+        self._refill()
+        disp = Gdk.Display.get_default()
+        seat = disp.get_default_seat()
+        x, y = (seat.get_pointer().get_position()[1:3]) if seat else (200, 200)
+        mon = disp.get_monitor_at_point(x, y) or disp.get_primary_monitor()
+        g = mon.get_workarea()
+        self.show_all()
+        self.sc.set_visible(bool(self.items))
+        self.empty.set_visible(not self.items)
+        w = 380
+        h = self.get_preferred_height()[1]
+        self.move(max(g.x, min(x - w // 2, g.x + g.width - w)), max(g.y, min(y + 12, g.y + g.height - h)))
+        ts = 0
+        try:
+            if GdkX11 and self.get_window() is not None:
+                ts = GdkX11.x11_get_server_time(self.get_window())
+        except Exception:
+            ts = 0
+        self.present_with_time(ts) if ts else self.present()
+
+    def hide_win(self):
+        if self.get_visible():
+            self.hidden_at = time.monotonic()
+            self.hide()
+
+    def toggle(self):
+        if self.get_visible():
+            self.hide_win()
+        elif time.monotonic() - self.hidden_at > 0.35:
+            self.show_win()
+
+
+class ClipApp(Gtk.Application):
+    def __init__(self):
+        super().__init__(application_id=APP_ID, flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE)
+        self.win = None
+        act = Gio.SimpleAction.new("toggle", None)
+        act.connect("activate", lambda *_: self.win.toggle())
+        self.add_action(act)
+
+    def do_startup(self):
+        Gtk.Application.do_startup(self)
+        prov = Gtk.CssProvider()
+        prov.load_from_data(CSS)
+        Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), prov,
+                                                 Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+        self.hold()
+        self.win = ClipWindow(self)
+
+    def do_command_line(self, cl):
+        args = cl.get_arguments()[1:]
+        if "--daemon" not in args:
+            self.win.toggle()
+        return 0
+
+
+if __name__ == "__main__":
+    sys.exit(ClipApp().run(sys.argv))

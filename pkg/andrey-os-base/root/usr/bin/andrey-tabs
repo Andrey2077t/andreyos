@@ -1,0 +1,339 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""Abas do Andrey OS: troca de janela por número e agrupamento na barra superior.
+
+  andrey-tabs N              vai para a aba N (1 a 9) da barra superior
+  andrey-tabs --daemon       Ctrl+1 ... Ctrl+9 só valem DEPOIS de clicar na barra superior (roda no login)
+  andrey-tabs --list         mostra as abas na ordem da barra e qual é a ativa
+  andrey-tabs --group MODO   agrupamento das janelas do mesmo programa: on | off | auto | toggle | status
+
+Ctrl+1..9 não são atalhos globais: o serviço (--daemon) só captura essas teclas enquanto a barra superior
+estiver "armada" (você clicou nela). Clicou em qualquer outro lugar (página do navegador, outra janela, dock...),
+as teclas voltam para os programas e o Ctrl+1..9 do navegador funciona normal.
+
+Sem agrupar, cada janela é uma aba e Ctrl+N vai para a N-ésima janela.
+Agrupado, cada programa é UMA aba (com todas as janelas dele) e Ctrl+N vai para o N-ésimo programa;
+apertar de novo o mesmo atalho passa para a próxima janela daquele programa.
+No modo "auto" o painel só agrupa quando falta espaço, então o Ctrl+N conta como no modo sem agrupar.
+"""
+import fcntl
+import os
+import subprocess
+import sys
+
+APPLET_SCHEMA = "org.mate.panel.applet.window-list"
+OBJECTS = "/org/mate/panel/objects/"
+GROUP_KEY = "group-windows"
+MODES = {"on": "always", "off": "never", "auto": "auto"}
+TOP_BAR_FALLBACK_H = 32          # altura da barra superior no layout do painel (size=32)
+
+
+# ---------------------------------------------------------------- lógica pura (testada sem X)
+
+def build_tabs(wins, grouped):
+    """wins: [(id, classe)] na ordem em que as janelas foram abertas. Devolve [[id, ...], ...], uma lista por aba.
+    A barra do MATE junta as janelas do mesmo programa lado a lado, na posição da primeira janela dele."""
+    order, by_class = [], {}
+    for wid, cls in wins:
+        if cls not in by_class:
+            by_class[cls] = []
+            order.append(cls)
+        by_class[cls].append(wid)
+    if grouped:
+        return [by_class[c] for c in order]
+    return [[wid] for c in order for wid in by_class[c]]
+
+
+def pick_window(tab, active, stacked):
+    """Qual janela da aba abrir. Se a ativa já é desta aba, passa para a próxima (volta ao começo);
+    senão, a que está mais à frente (stacked: ids da de trás para a da frente)."""
+    if active in tab:
+        return tab[(tab.index(active) + 1) % len(tab)]
+    rank = {wid: i for i, wid in enumerate(stacked)}
+    return max(tab, key=lambda w: rank.get(w, -1))
+
+
+def parse_n(arg):
+    try:
+        n = int(arg)
+    except (TypeError, ValueError):
+        return None
+    return n if 1 <= n <= 9 else None
+
+
+def top_bar_rects(rects, screen_h):
+    """Retângulos (x, y, largura, altura) dos painéis que ficam na metade de cima da tela. O dock de baixo
+    não conta: só a barra superior (a das abas) arma o Ctrl+1..9."""
+    return [r for r in rects if r[1] + r[3] / 2.0 < screen_h / 2.0]
+
+
+def click_in_top_bar(x, y, rects, screen_h):
+    """True se o clique em (x, y) caiu na barra superior. rects = retângulos de todos os painéis.
+    Se o painel não foi achado (lista vazia), vale a faixa de cima com a altura do layout (size=32)."""
+    bars = top_bar_rects(rects, screen_h)
+    if not bars:
+        return 0 <= y < TOP_BAR_FALLBACK_H
+    return any(bx <= x < bx + bw and by <= y < by + bh for bx, by, bw, bh in bars)
+
+
+class BarState:
+    """Estado "armada / desarmada": clicou na barra superior arma; clicou em qualquer outro lugar desarma."""
+
+    def __init__(self):
+        self.armed = False
+
+    def click(self, in_bar):
+        """Registra um clique. Devolve True se o estado mudou."""
+        changed = bool(in_bar) != self.armed
+        self.armed = bool(in_bar)
+        return changed
+
+
+# ---------------------------------------------------------------- configuração do painel
+
+def _dconf_read(key):
+    try:
+        r = subprocess.run(["dconf", "read", key], capture_output=True, text=True, timeout=5)
+        return r.stdout.strip().strip("'")
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def prefs_path():
+    """Pasta do dconf com as opções da lista de janelas (o id do objeto vem do layout do painel)."""
+    try:
+        out = subprocess.run(["dconf", "list", OBJECTS], capture_output=True, text=True, timeout=5).stdout
+    except (OSError, subprocess.SubprocessError):
+        out = ""
+    for oid in out.split():
+        oid = oid.rstrip("/")
+        if oid and _dconf_read(OBJECTS + oid + "/applet-iid").endswith("WindowListApplet"):
+            return OBJECTS + oid + "/prefs/"
+    return OBJECTS + "window-list/prefs/"
+
+
+def _settings():
+    from gi.repository import Gio
+    src = Gio.SettingsSchemaSource.get_default()
+    if src is None or src.lookup(APPLET_SCHEMA, True) is None:
+        return None                      # Settings.new_with_path() num esquema ausente derruba o programa
+    return Gio.Settings.new_with_path(APPLET_SCHEMA, prefs_path())
+
+
+def get_group():
+    st = _settings()
+    return st.get_string(GROUP_KEY) if st is not None else "never"
+
+
+def set_group(value):
+    from gi.repository import Gio
+    st = _settings()
+    if st is None:
+        print("andrey-tabs: esquema da lista de janelas ausente (mate-panel instalado?)", file=sys.stderr)
+        return 1
+    st.set_string(GROUP_KEY, value)
+    Gio.Settings.sync()
+    return 0
+
+
+def all_workspaces():
+    st = _settings()
+    try:
+        return bool(st is not None and st.get_boolean("display-all-workspaces"))
+    except Exception:
+        return False
+
+
+# ---------------------------------------------------------------- janelas (libwnck)
+
+_WNCK = None
+
+
+def _screen():
+    global _WNCK
+    if _WNCK is None:
+        import gi
+        gi.require_version("Gtk", "3.0")
+        gi.require_version("Wnck", "3.0")
+        from gi.repository import Wnck
+        Wnck.set_client_type(Wnck.ClientType.PAGER)      # o Marco sempre aceita ativação vinda de "painel"
+        _WNCK = (Wnck, Wnck.Screen.get_default())
+    _WNCK[1].force_update()
+    return _WNCK
+
+
+def tab_windows(Wnck, scr):
+    """[(janela, classe)] das janelas que a barra superior mostra, na ordem de abertura."""
+    ws = scr.get_active_workspace()
+    every = all_workspaces()
+    kinds = (Wnck.WindowType.NORMAL, Wnck.WindowType.DIALOG)
+    out = []
+    for w in scr.get_windows():
+        if w.is_skip_tasklist() or w.get_window_type() not in kinds:
+            continue
+        if w.get_transient() is not None:             # diálogo de outra janela: fica junto com ela
+            continue
+        if not (every or w.is_pinned() or ws is None or w.is_on_workspace(ws)):
+            continue
+        cg = w.get_class_group()
+        cls = (cg.get_res_class() if cg is not None else "") or w.get_name() or str(w.get_xid())
+        out.append((w, cls))
+    return out
+
+
+def server_time():
+    """Marca de tempo (não zero) para a ativação. Como o cliente se declara "painel", o Marco aceita sempre;
+    o valor só existe para a libwnck não reclamar de timestamp 0."""
+    from gi.repository import GLib
+    return (GLib.get_monotonic_time() // 1000) & 0xFFFFFFFF or 1
+
+
+def current_tabs():
+    Wnck, scr = _screen()
+    items = tab_windows(Wnck, scr)
+    xid = {w.get_xid(): w for w, _c in items}
+    grouped = get_group() == "always"
+    tabs = build_tabs([(w.get_xid(), c) for w, c in items], grouped)
+    return Wnck, scr, xid, tabs, grouped
+
+
+def goto(n):
+    Wnck, scr, xid, tabs, _g = current_tabs()
+    if n > len(tabs):
+        return 0                                      # não existe essa aba: não faz nada
+    act = scr.get_active_window()
+    stacked = [w.get_xid() for w in scr.get_windows_stacked()]
+    target = xid[pick_window(tabs[n - 1], act.get_xid() if act is not None else None, stacked)]
+    ts = server_time()
+    if target.is_minimized():
+        target.unminimize(ts)
+    target.activate(ts)
+    from gi.repository import Gdk
+    Gdk.flush()
+    return 0
+
+
+def panel_rects():
+    """([(x, y, largura, altura)] dos painéis do MATE, altura da tela)."""
+    Wnck, scr = _screen()
+    rects = []
+    for w in scr.get_windows():
+        if w.get_window_type() != Wnck.WindowType.DOCK:
+            continue
+        cg = w.get_class_group()
+        if cg is None or (cg.get_res_class() or "").lower() != "mate-panel":
+            continue
+        rects.append(tuple(w.get_geometry()))
+    return rects, scr.get_height()
+
+
+def _x_helpers():
+    """Módulo andrey_x (acesso ao X11 via ctypes), ou None."""
+    here = os.path.dirname(os.path.realpath(__file__))
+    for d in ("/usr/lib/andrey-os", os.path.join(here, "..", "lib", "andrey-os")):
+        if os.path.isfile(os.path.join(d, "andrey_x.py")) and d not in sys.path:
+            sys.path.insert(0, d)
+    try:
+        import andrey_x
+        return andrey_x
+    except Exception:
+        return None
+
+
+def daemon():
+    """Ctrl+1..9 só depois de clicar na barra superior. Escuta os cliques de forma passiva (XRecord) e só
+    CAPTURA as teclas enquanto a barra está armada; fora disso o X não sabe que elas existem aqui."""
+    ax = _x_helpers()
+    if ax is None or ax.x11 is None or ax.xtst is None:
+        print("andrey-tabs: libX11/libXtst indisponíveis", file=sys.stderr)
+        return 1
+    if not os.environ.get("DISPLAY"):
+        return 0
+    lock = open(os.path.join(os.environ.get("XDG_RUNTIME_DIR", "/tmp"), "andrey-tabs.lock"), "w")
+    try:
+        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        return 0                                       # já existe uma instância
+    from gi.repository import GLib
+    try:
+        _screen()
+    except Exception as e:                             # sem libwnck não há como saber onde fica a barra
+        print("andrey-tabs: libwnck indisponível (%s)" % e, file=sys.stderr)
+        return 1
+    ctrl = ax.open_display()
+    if not ctrl:
+        print("andrey-tabs: sem conexão com o X (Wayland?)", file=sys.stderr)
+        return 1
+    ax.ignore_x_errors()
+    codes = ax.digit_keycodes(ctrl)
+    state = BarState()
+
+    def drain(*_a):
+        for n in ax.pending_digit_presses(ctrl, codes):
+            try:
+                goto(n)
+            except Exception as e:                     # uma falha numa troca não derruba o serviço
+                print("andrey-tabs: %s" % e, file=sys.stderr)
+        return True
+
+    def on_click(x, y):
+        try:
+            rects, height = panel_rects()
+            if state.click(click_in_top_bar(x, y, rects, height)):
+                if not ax.grab_digits(ctrl, codes, state.armed) and state.armed:
+                    print("andrey-tabs: Ctrl+1..9 já está capturado por outro programa "
+                          "(rode: andrey-keys --repair)", file=sys.stderr)
+                drain()                                # eventos que o XSync já puxou para a fila
+        except Exception as e:
+            print("andrey-tabs: %s" % e, file=sys.stderr)
+        return False
+
+    GLib.io_add_watch(ax.connection_fd(ctrl), GLib.IO_IN, drain)
+    if not ax.watch_clicks(lambda x, y: GLib.idle_add(on_click, x, y)):
+        print("andrey-tabs: extensão RECORD indisponível", file=sys.stderr)
+        return 1
+    GLib.MainLoop().run()
+    return 0
+
+
+def show_list():
+    _W, scr, xid, tabs, grouped = current_tabs()
+    act = scr.get_active_window()
+    aid = act.get_xid() if act is not None else None
+    print("agrupar janelas:", "sim" if grouped else "não")
+    for i, tab in enumerate(tabs, 1):
+        names = ["%s%s" % ("* " if x == aid else "", xid[x].get_name()) for x in tab]
+        print("%d  %s" % (i, "  |  ".join(names)))
+    return 0
+
+
+def group_cmd(arg):
+    cur = get_group()
+    if arg in (None, "status"):
+        print({"always": "on", "never": "off", "auto": "auto"}.get(cur, cur))
+        return 0
+    if arg == "toggle":
+        arg = "off" if cur == "always" else "on"
+    if arg not in MODES:
+        print("andrey-tabs: use on, off, auto, toggle ou status", file=sys.stderr)
+        return 2
+    return set_group(MODES[arg])
+
+
+def main(argv):
+    a = argv[1] if len(argv) > 1 else "--help"
+    if a == "--list":
+        return show_list()
+    if a == "--daemon":
+        return daemon()
+    if a == "--group":
+        return group_cmd(argv[2] if len(argv) > 2 else None)
+    n = parse_n(a)
+    if n is not None:
+        return goto(n)
+    print(__doc__)
+    return 0 if a in ("-h", "--help") else 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
