@@ -1,0 +1,22 @@
+#!/bin/sh
+# Configuração do live-build para o Andrey OS (base: Debian 13 "trixie" + MATE)
+set -e
+
+lb config noauto \
+    --distribution trixie \
+    --architectures amd64 \
+    --archive-areas "main contrib non-free non-free-firmware" \
+    --parent-archive-areas "main contrib non-free non-free-firmware" \
+    --firmware-chroot true \
+    --linux-flavours amd64 \
+    --binary-images iso-hybrid \
+    --bootloaders "grub-pc,grub-efi" \
+    --debian-installer none \
+    --iso-application "Andrey OS" \
+    --iso-publisher "Andrey" \
+    --iso-volume "ANDREY_OS" \
+    --image-name "andrey-os" \
+    --bootappend-live "boot=live quiet splash locales=pt_BR.UTF-8 keyboard-layouts=br timezone=America/Sao_Paulo hostname=andrey-os nocomponents=user-setup,sudo,lightdm" \
+    --apt-recommends false \
+    --memtest none \
+    "${@}"

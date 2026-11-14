@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Menu Iniciar
+Comment=Abre o Menu Iniciar do Andrey OS (tecla Super)
+Exec=andrey-start-toggle
+Icon=andrey-grid
+Terminal=false
+NoDisplay=true
+Categories=System;
