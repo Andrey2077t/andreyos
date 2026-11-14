@@ -15,8 +15,7 @@
 // icone liga/desliga o mudo. Quem mexe no som de verdade e o script `andrey-volume` (set/mute --quiet).
 //
 // Compilar:
-//   g++ -std=c++17 -O2 -fPIC -Wall -Wextra andrey_volume_osd.cpp -o andrey-volume-osd \
-//       $(pkg-config --cflags --libs Qt6Widgets Qt6Network)
+//   g++ -std=c++17 -O2 -fPIC -Wall -Wextra andrey_volume_osd.cpp -o andrey-volume-osd $(pkg-config --cflags --libs Qt6Widgets Qt6Network)
 
 #include <QApplication>
 #include <QWidget>
