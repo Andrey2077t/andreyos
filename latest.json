@@ -1,6 +1,6 @@
 {
-  "version": "0.2.4",
-  "previous": "0.2.3",
-  "notes": "Detecções sem reiniciar",
-  "date": "2026-11-14T17:31:22Z"
+  "version": "0.2.5",
+  "previous": "0.2.4",
+  "notes": "adicionado andrey-audio-heal que sobe no login junto com o sistema",
+  "date": "2026-11-14T17:54:44Z"
 }
