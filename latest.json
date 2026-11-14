@@ -1,6 +1,6 @@
 {
-  "version": "0.2.1",
-  "previous": "0.2.0",
-  "notes": "adicionado recurso nativo de extrair e compactar arquivos juntamente com lançamento de andrey music",
-  "date": "2026-11-14T07:58:43Z"
+  "version": "0.2.2",
+  "previous": "0.2.1",
+  "notes": "agrupar e ctrl+1 até ctrl+9",
+  "date": "2026-11-14T09:02:42Z"
 }

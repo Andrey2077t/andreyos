@@ -18,25 +18,6 @@ Description: Identidade visual e atualizador do Andrey OS
  "andrey-update", que busca novas versoes no repositorio apt do projeto (GitHub Pages).
 
 Package: andrey-os-base
-Version: 0.1.3
-Architecture: all
-Maintainer: Andrey OS <andrey-os@localhost>
-Installed-Size: 1044
-Depends: mate-panel, mate-applets, libglib2.0-bin, curl, jq, zenity, pkexec, python3, python3-gi, gir1.2-gtk-3.0, librsvg2-common
-Recommends: plymouth
-Filename: pool/andrey-os-base_0.1.3_all.deb
-Size: 318538
-MD5sum: 71f3aa1e621350e7e710eda6aee2931c
-SHA1: af11ce88c26b46cd9a522327a36b551a327470bd
-SHA256: e37cab1813ececebf560b1b18f0641b2be744fe7945ac4150c561f84abe8e40f
-Section: misc
-Priority: optional
-Description: Identidade visual e atualizador do Andrey OS
- Paineis (barra superior e docks), icones vermelhos, wallpaper, tema Plymouth,
- branding do instalador, conky e o atualizador "andrey-update", que busca novas
- versoes no repositorio apt do projeto (GitHub Pages).
-
-Package: andrey-os-base
 Version: 0.1.4
 Architecture: all
 Maintainer: Andrey OS <andrey-os@localhost>
@@ -181,6 +162,26 @@ Size: 420792
 MD5sum: c7d5f36973d7c7907350e36513584db7
 SHA1: ce3dcc0cca275e95005c1e88c8e4b9d5fdcf6be5
 SHA256: 999614c8db9e5ef992fae6fda43da4b07410b8c3adc71a814101b0d630e71e25
+Section: misc
+Priority: optional
+Description: Identidade visual e atualizador do Andrey OS
+ Paineis (barra superior e dock), icones vermelhos, wallpaper, tema Plymouth,
+ branding do instalador, conky, a janela "Desinstalar Programas" (Qt6), o Display de volume (Qt6) e o atualizador
+ "andrey-update", que busca novas versoes no repositorio apt do projeto (GitHub Pages). Tambem traz o
+ suporte a compactar/extrair arquivos (Engrampa) e o aplicativo Andrey Music.
+
+Package: andrey-os-base
+Version: 0.2.2
+Architecture: amd64
+Maintainer: Andrey OS <andrey-os@localhost>
+Installed-Size: 1476
+Depends: mate-panel, mate-applets, libglib2.0-bin, curl, jq, zenity, pkexec, python3, python3-gi, gir1.2-gtk-3.0, gir1.2-wnck-3.0, librsvg2-common, chromium | chromium-browser | google-chrome-stable, wmctrl, bluez, blueman, engrampa, zip, unzip, 7zip | p7zip-full, libqt6widgets6t64 | libqt6widgets6, libqt6svg6t64 | libqt6svg6, libqt6network6t64 | libqt6network6, qt6-qpa-plugins, libxcb-cursor0
+Recommends: plymouth, pulseaudio-module-bluetooth, bluez-obexd, unrar | unrar-free, xz-utils, bzip2, zstd
+Filename: pool/andrey-os-base_0.2.2_amd64.deb
+Size: 423502
+MD5sum: 43715b72d96976974d01f65aa23508d8
+SHA1: f65fcc8aed9b6508f7bbbe1fb0838ab854df469c
+SHA256: b6d812ec951a4a359d515ebe25fe90009f3b57250fc2db8f3166f78d7f626218
 Section: misc
 Priority: optional
 Description: Identidade visual e atualizador do Andrey OS
