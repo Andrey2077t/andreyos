@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Andrey Music
+GenericName=Player de musica
+Comment=Ouça o que você ama!
+Exec=andrey-music %U
+Icon=andrey-music
+Terminal=false
+Categories=AudioVideo;Audio;Player;Music;
+StartupWMClass=AndreyMusic
+StartupNotify=true
+Keywords=musica;música;music;player;playlist;som;audio;áudio;andrey;

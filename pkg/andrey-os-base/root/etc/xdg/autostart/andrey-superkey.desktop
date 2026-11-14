@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Tecla Super abre o Menu Iniciar
+Exec=andrey-superkey
+Terminal=false
+NoDisplay=true
+X-MATE-Autostart-enabled=true
+X-MATE-Autostart-Delay=2

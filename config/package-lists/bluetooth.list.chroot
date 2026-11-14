@@ -1,0 +1,18 @@
+# ---- Bluetooth (live e sistema instalado): funciona ate com adaptador USB generico/barato.
+# Com --apt-recommends false nada vem sozinho, entao tudo fica explicito aqui.
+#
+# Pilha base: bluetoothd, firmware do Broadcom antigo e o rfkill (desbloqueio de software)
+bluez
+bluez-firmware
+rfkill
+# Firmware dos chips que mais aparecem em adaptador USB barato e em notebook:
+# Realtek (RTL8761B/BU, RTL8852...), Atheros/Qualcomm (AR3012, AR9462, QCA). O firmware da Intel
+# e o da MediaTek ja vem no firmware-misc-nonfree (drivers.list.chroot).
+firmware-realtek
+firmware-atheros
+firmware-misc-nonfree
+# Interface (icone na area de notificacao + gerenciador) e envio/recebimento de arquivos
+blueman
+bluez-obexd
+# Audio (fone, caixa de som): o sistema usa PulseAudio, entao o modulo A2DP/HSP/HFP e este
+pulseaudio-module-bluetooth

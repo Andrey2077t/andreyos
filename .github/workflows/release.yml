@@ -1,0 +1,118 @@
+name: Publicar versão (atualização)
+
+# Como usar: aba Actions > "Publicar versão (atualização)" > Run workflow
+# Digite o número (ex.: 0.0.6) e o que mudou. O resultado:
+#   - pacote andrey-os-base_0.0.6_amd64.deb publicado no repositório apt (branch gh-pages / GitHub Pages)
+#   - latest.json com versão nova, versão anterior e notas (o andrey-update mostra isso)
+#   - release v0.0.6 no GitHub com o .deb anexado
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Número da versão (ex.: 0.0.6) — precisa ser maior que a anterior"
+        required: true
+      notes:
+        description: "O que mudou (aparece para o usuário na janela de atualização)"
+        required: true
+        default: "Melhorias gerais."
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publicar-versao
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ inputs.version }}
+      NOTES: ${{ inputs.notes }}
+      APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validar versão
+        run: |
+          [[ "$VERSION" =~ ^[0-9]+(\.[0-9]+)*$ ]] || { echo "::error::Versão inválida: '$VERSION' (use algo como 0.0.6)"; exit 1; }
+          if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
+            echo "::error::A versão v$VERSION já foi publicada. Use um número maior."; exit 1
+          fi
+
+      - name: Instalar ferramentas
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y dpkg-dev jq gnupg g++ pkg-config libcairo2-dev libx11-dev fonts-inter qt6-base-dev qt6-svg-dev
+
+      - name: Importar chave de assinatura (se existir)
+        run: |
+          if [ -n "$APT_GPG_PRIVATE_KEY" ]; then
+            export GNUPGHOME="$RUNNER_TEMP/gnupg"; mkdir -p "$GNUPGHOME"; chmod 700 "$GNUPGHOME"
+            printf '%s' "$APT_GPG_PRIVATE_KEY" | gpg --batch --import
+            echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
+            echo "SIGN=1" >> "$GITHUB_ENV"
+            # garante que o .deb leve a chave publica (repositório assinado)
+            mkdir -p pkg/keyring
+            [ -f pkg/keyring/andrey-os.gpg ] || gpg --batch --export > pkg/keyring/andrey-os.gpg
+          elif [ -f pkg/keyring/andrey-os.gpg ]; then
+            echo "::error::Existe pkg/keyring/andrey-os.gpg mas o segredo APT_GPG_PRIVATE_KEY não foi configurado."; exit 1
+          else
+            echo "::notice::Sem chave de assinatura: repositório vai ficar sem assinatura (trusted=yes)."
+          fi
+
+      - name: Regenerar arte (wallpaper, ícones)
+        run: bash pkg/render-assets.sh
+
+      - name: Construir o pacote
+        run: bash pkg/build-deb.sh "$VERSION" out
+
+      - name: Preparar branch gh-pages
+        run: |
+          REMOTE="https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          if git ls-remote --exit-code --heads "$REMOTE" gh-pages >/dev/null 2>&1; then
+            git clone --depth 1 --branch gh-pages "$REMOTE" pages
+          else
+            mkdir pages && cd pages && git init -q -b gh-pages && git remote add origin "$REMOTE"
+          fi
+
+      - name: Atualizar repositório apt
+        run: bash pkg/update-apt-repo.sh pages "out/andrey-os-base_${VERSION}_amd64.deb" "$VERSION" "$NOTES"
+
+      - name: Publicar no GitHub Pages (gh-pages)
+        run: |
+          cd pages
+          git config user.name "andrey-os-bot"
+          git config user.email "andrey-os-bot@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Andrey OS $VERSION"
+          # o GitHub as vezes devolve erro 500: tenta de novo algumas vezes
+          for i in 1 2 3 4; do
+            git push origin HEAD:gh-pages && break
+            [ "$i" = 4 ] && { echo "::error::push no gh-pages falhou 4 vezes"; exit 1; }
+            echo "tentativa $i falhou; aguardando..." >&2; sleep $((i * 20))
+          done
+
+      - name: Criar release no GitHub
+        run: |
+          for i in 1 2 3 4; do
+            # se a tentativa anterior chegou a criar a release (e so a resposta deu erro), nao recria
+            gh release view "v$VERSION" >/dev/null 2>&1 && break
+            gh release create "v$VERSION" "out/andrey-os-base_${VERSION}_amd64.deb" \
+              --title "Andrey OS $VERSION" --notes "$NOTES" --target "$GITHUB_SHA" && break
+            [ "$i" = 4 ] && { echo "::error::criar a release falhou 4 vezes"; exit 1; }
+            echo "tentativa $i falhou; aguardando..." >&2; sleep $((i * 20))
+          done
+
+      - name: Registrar VERSION no repositório (usada pelas próximas ISOs)
+        continue-on-error: true
+        run: |
+          git config user.name "andrey-os-bot"
+          git config user.email "andrey-os-bot@users.noreply.github.com"
+          git checkout -q "${GITHUB_REF_NAME}"
+          echo "$VERSION" > VERSION
+          git add VERSION
+          git commit -q -m "VERSION $VERSION" || exit 0
+          git push origin "HEAD:${GITHUB_REF_NAME}"

@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Histórico da área de transferência
+Comment=Mostra o que você copiou antes (Super+V)
+Exec=andrey-clipboard --toggle
+Icon=edit-paste
+Terminal=false
+Categories=Utility;
+Keywords=copiar;colar;clipboard;histórico;area de transferencia;

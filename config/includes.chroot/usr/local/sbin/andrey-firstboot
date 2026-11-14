@@ -1,0 +1,125 @@
+#!/bin/bash
+# Andrey OS - assistente de primeiro boot da sessao LIVE.
+# Roda ANTES do login grafico: a pessoa cria o proprio usuario e a propria senha.
+# Tudo vive na RAM da sessao live; o sistema instalado NAO herda conta nem autologin
+# (la quem cria a conta eh o instalador/Calamares).
+set -u
+
+export TERM=linux
+export NEWT_COLORS='root=,black window=,black border=red,black title=red,black
+button=black,red actbutton=white,red entry=white,black label=white,black
+textbox=white,black acttextbox=black,red helpline=white,black roottext=red,black'
+
+TITLE="Andrey OS"
+DONE=/run/andrey-firstboot.done
+TEMP_USER=andrey
+TEMP_PASS=live
+
+# whiptail desenha a interface no stderr (idioma 3>&1 1>&2 2>&3); se o stderr nao for
+# um terminal (ex.: journal), a tela some e a pessoa fica olhando a tela anterior.
+[ -t 2 ] || exec 2>/dev/tty8 </dev/tty8 >/dev/tty8
+
+log() { logger -t andrey-firstboot -- "$*" 2>/dev/null || true; }
+
+# nome valido do useradd: minusculas/numeros/_/-, comeca por letra ou _, ate 32 chars, e ainda nao existe
+valid_user() {
+    [[ "$1" =~ ^[a-z_][a-z0-9_-]{0,31}$ ]] && ! getent passwd "$1" >/dev/null 2>&1
+}
+
+msg() { whiptail --title "$TITLE" --msgbox "$1" 12 66; }
+
+# Cria usuario + grupos + senha + sudo/polkit sem prompt + autologin (so nesta sessao live)
+create_account() {
+    local user="$1" pass="$2" g groups=""
+    useradd -m -s /bin/bash -c "$user" "$user" || return 1
+    for g in sudo audio video cdrom floppy dip plugdev netdev scanner bluetooth fuse lpadmin; do
+        getent group "$g" >/dev/null 2>&1 && groups="${groups:+$groups,}$g"
+    done
+    [ -n "$groups" ] && usermod -aG "$groups" "$user"
+    printf '%s:%s\n' "$user" "$pass" | chpasswd || return 1
+
+    # instalador/launchers graficos precisam de root sem prompt na sessao live
+    mkdir -p /etc/sudoers.d /usr/share/polkit-1/rules.d /etc/lightdm/lightdm.conf.d
+    printf '%s ALL=(ALL) NOPASSWD: ALL\n' "$user" > /etc/sudoers.d/live
+    chmod 0440 /etc/sudoers.d/live
+    cat > /usr/share/polkit-1/rules.d/sudo_on_live.rules <<'EOF'
+// Sessao live: membros do grupo sudo passam sem prompt
+polkit.addRule(function(action, subject) {
+    if (subject.local && subject.active && subject.isInGroup("sudo")) {
+        return polkit.Result.YES;
+    }
+});
+EOF
+    cat > /etc/lightdm/lightdm.conf.d/60-andrey-live-autologin.conf <<EOF
+[Seat:*]
+autologin-user=$user
+autologin-user-timeout=0
+EOF
+    return 0
+}
+
+temp_account() {
+    if ! getent passwd "$TEMP_USER" >/dev/null 2>&1; then
+        create_account "$TEMP_USER" "$TEMP_PASS" || { log "falha ao criar conta temporaria"; return 1; }
+    fi
+    command -v whiptail >/dev/null 2>&1 && \
+        msg "Conta temporaria desta sessao:\n\n   usuario: $TEMP_USER\n   senha:   $TEMP_PASS\n\nEla some ao desligar. No instalador voce cria a sua conta de verdade."
+    return 0
+}
+
+main() {
+    [ -e "$DONE" ] && return 0
+
+    # Modo teste/VM: boot com "andrey.temp" pula o assistente
+    if grep -qw 'andrey.temp' /proc/cmdline; then
+        temp_account; return $?
+    fi
+    if ! command -v whiptail >/dev/null 2>&1; then
+        log "whiptail ausente; usando conta temporaria"
+        temp_account; return $?
+    fi
+
+    plymouth quit 2>/dev/null || true
+
+    whiptail --title "$TITLE" --msgbox "Bem-vindo ao Andrey OS!\n\nAqui nao existe conta pronta: voce cria a sua.\nEscolha um nome de usuario e uma senha. A senha e so sua, sem regras." 12 66
+
+    local user p1 p2 fails=0
+    while :; do
+        user=$(whiptail --title "$TITLE" --inputbox "Nome de usuario (letras, numeros, _ ou -):" 10 66 "" 3>&1 1>&2 2>&3)
+        if [ $? -ne 0 ]; then
+            whiptail --title "$TITLE" --defaultno --yesno "Pular e usar uma conta TEMPORARIA ($TEMP_USER / $TEMP_PASS) so nesta sessao?" 10 66 && { temp_account; return $?; }
+            continue
+        fi
+        user=$(printf '%s' "$user" | LC_ALL=C tr 'A-Z' 'a-z' | tr -d ' ')   # LC_ALL=C: faixa A-Z estavel em qualquer locale
+        if ! valid_user "$user"; then
+            msg "Nome invalido ou ja existe.\n\nUse letras minusculas, numeros, _ ou -, comecando por letra."
+            continue
+        fi
+
+        p1=$(whiptail --title "$TITLE" --passwordbox "Senha para '$user':" 10 66 "" 3>&1 1>&2 2>&3) || continue
+        p2=$(whiptail --title "$TITLE" --passwordbox "Repita a senha:" 10 66 "" 3>&1 1>&2 2>&3) || continue
+        [ -n "$p1" ] || { msg "A senha nao pode ficar vazia."; continue; }
+        [ "$p1" = "$p2" ] || { msg "As senhas nao conferem. Tente de novo."; continue; }
+
+        if create_account "$user" "$p1"; then
+            msg "Conta criada!\n\n   usuario: $user\n\nVoce vai entrar agora. Se sair da sessao, entre com essa senha."
+            return 0
+        fi
+        fails=$((fails + 1))
+        userdel -r "$user" 2>/dev/null || true
+        if [ "$fails" -ge 3 ]; then
+            log "3 falhas ao criar conta; usando conta temporaria"
+            temp_account; return $?
+        fi
+        msg "Nao consegui criar a conta. Tente outro nome."
+    done
+}
+
+if main; then
+    touch "$DONE"
+else
+    log "assistente falhou; tentando conta temporaria"
+    temp_account && touch "$DONE"
+fi
+chvt 7 2>/dev/null || true
+exit 0

@@ -1,0 +1,3 @@
+# Mesma ideia do modprobe.d/andrey-bluetooth.conf, para a porta USB: adaptador Bluetooth
+# (classe e0/01/01) nunca entra em economia de energia.
+ACTION=="add|bind", SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{bDeviceClass}=="e0", ATTR{bDeviceSubClass}=="01", ATTR{bDeviceProtocol}=="01", TEST=="power/control", ATTR{power/control}="on"
