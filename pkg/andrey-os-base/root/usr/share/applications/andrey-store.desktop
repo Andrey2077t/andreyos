@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Loja de Aplicativos
+GenericName=Instalar programas
+Comment=Instale e remova programas com um clique (e abra arquivos .deb)
+Exec=andrey-store %f
+Icon=system-software-install
+Terminal=false
+Categories=System;Settings;PackageManager;
+MimeType=application/vnd.debian.binary-package;application/x-deb;
+Keywords=loja;instalar;programas;apps;store;deb;

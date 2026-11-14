@@ -1,0 +1,12 @@
+#!/bin/sh
+# Bloqueia a tela (Super+L). Tenta, na ordem: mate-screensaver, LightDM, logind.
+if command -v mate-screensaver-command >/dev/null 2>&1 && pgrep -x mate-screensaver >/dev/null 2>&1; then
+    exec mate-screensaver-command --lock
+fi
+if command -v dm-tool >/dev/null 2>&1 && [ -n "$XDG_SEAT_PATH" ]; then
+    exec dm-tool lock
+fi
+if command -v loginctl >/dev/null 2>&1; then
+    exec loginctl lock-session
+fi
+exec xdg-screensaver lock

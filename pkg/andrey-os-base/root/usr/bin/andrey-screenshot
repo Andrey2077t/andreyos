@@ -1,0 +1,19 @@
+#!/bin/sh
+# Captura de tela estilo Windows.
+#   andrey-screenshot --area     Super+Shift+S: seleciona uma região e copia para a área de transferência
+#   andrey-screenshot --window   janela ativa
+#   andrey-screenshot            tela inteira (abre o diálogo para salvar)
+if ! command -v mate-screenshot >/dev/null 2>&1; then
+    if zenity --question --no-markup --title="Captura de tela" --width=380 \
+        --text="O programa de captura de tela (mate-screenshot) não está instalado. Instalar agora?" \
+        --ok-label="Instalar" --cancel-label="Agora não" 2>/dev/null; then
+        pkexec /usr/lib/andrey-os/apt-helper install mate-utils \
+            && exec "$0" "$@"
+    fi
+    exit 0
+fi
+case "$1" in
+    --area)   exec mate-screenshot --area --clipboard ;;
+    --window) exec mate-screenshot --window ;;
+    *)        exec mate-screenshot ;;
+esac

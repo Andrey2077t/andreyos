@@ -1,0 +1,49 @@
+# ---- Hardware e drivers (live e sistema instalado).
+# Com --apt-recommends false nada vem sozinho. Os componentes non-free/non-free-firmware ja estao em auto/config.
+# O que NAO esta aqui (driver proprietario da NVIDIA, wl da Broadcom) e escolhido pelo "andrey-drivers"
+# conforme o hardware, porque precisa de DKMS/headers e nao faz sentido numa sessao live.
+
+# Firmware de Wi-Fi, rede, vídeo (AMD/Intel/NVIDIA nouveau), som e Bluetooth
+firmware-linux
+firmware-misc-nonfree
+firmware-sof-signed
+
+# Microcódigo da CPU (carregado no boot pelo initramfs)
+intel-microcode
+amd64-microcode
+
+# Vídeo: OpenGL/Vulkan/aceleração de vídeo (AMD, Intel, nouveau)
+libgl1-mesa-dri
+libglx-mesa0
+mesa-vulkan-drivers
+mesa-va-drivers
+mesa-utils
+vainfo
+vulkan-tools
+intel-media-va-driver-non-free
+i965-va-driver
+
+# Detecta qual driver NVIDIA a placa precisa (usado pelo andrey-drivers)
+nvidia-detect
+
+# Diagnóstico e utilitários de hardware
+pciutils
+usbutils
+lshw
+dmidecode
+inxi
+mokutil
+fwupd
+
+# Wi-Fi, Bluetooth, modems USB
+wpasupplicant
+wireless-regdb
+iw
+rfkill
+ethtool
+usb-modeswitch
+bluez
+
+# Convidado de máquina virtual (resolução automática, copiar/colar)
+spice-vdagent
+qemu-guest-agent

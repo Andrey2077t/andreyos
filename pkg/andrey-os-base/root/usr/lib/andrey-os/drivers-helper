@@ -1,0 +1,129 @@
+#!/bin/bash
+# Roda como root (via pkexec) a pedido do andrey-drivers. So aceita as operacoes abaixo e so pacotes da lista permitida.
+#   drivers-helper install PACOTE...         instala drivers/firmware (Secure Boot + DKMS tratados aqui)
+#   drivers-helper install-newer PACOTE...   igual, mas das versoes mais novas (trixie-backports)
+#   drivers-helper mok-enroll                cadastra a chave do DKMS no Secure Boot (senha na entrada padrao)
+#   drivers-helper fwupd-refresh | fwupd-list | fwupd-apply
+export DEBIAN_FRONTEND=noninteractive
+set -e
+cmd="${1:-}"; shift || true
+
+MIRROR="http://deb.debian.org/debian"
+CODENAME=$(sed -n 's/^VERSION_CODENAME=//p' /etc/os-release 2>/dev/null | head -1)
+CODENAME="${CODENAME:-trixie}"
+COMPONENTS="main contrib non-free non-free-firmware"
+MOK_PUB=/var/lib/dkms/mok.pub
+
+# Lista permitida: este helper roda como root, entao nao instala "qualquer coisa" que alguem peca.
+ok_pkg() {
+    [[ "$1" =~ ^[a-z0-9][a-z0-9+.-]*(:i386)?$ ]] || return 1
+    local n="${1%:i386}"
+    # sufixo :i386 (Steam/Wine/Proton) so para o Mesa/Vulkan, nada mais
+    if [ "$n" != "$1" ]; then
+        case "$n" in libgl1-mesa-dri|libglx-mesa0|libegl-mesa0|libgbm1|mesa-vulkan-drivers|libvulkan1) return 0 ;; esac
+        return 1
+    fi
+    case "$1" in
+        firmware-*|amd64-microcode|intel-microcode|nvidia-*|libnvidia-*|xserver-xorg-video-nvidia*) return 0 ;;
+        libgl1-mesa-dri|libglx-mesa0|libegl-mesa0|libgbm1|libglapi-mesa|mesa-*|vainfo|vulkan-tools) return 0 ;;
+        intel-media-va-driver|intel-media-va-driver-non-free|i965-va-driver|i965-va-driver-shaders) return 0 ;;
+        broadcom-sta-dkms|dkms|mokutil|shim-signed|linux-headers-*|linux-image-amd64) return 0 ;;
+        spice-vdagent|qemu-guest-agent|open-vm-tools|open-vm-tools-desktop|virtualbox-guest-*|hyperv-daemons) return 0 ;;
+        fwupd|bluez|bluez-firmware) return 0 ;;
+    esac
+    return 1
+}
+
+check_pkgs() {
+    [ "$#" -ge 1 ] || { echo "Nenhum pacote informado." >&2; exit 2; }
+    local p
+    for p in "$@"; do ok_pkg "$p" || { echo "Pacote nao permitido: $p" >&2; exit 2; }; done
+}
+
+has_candidate() {
+    apt-cache policy "$1" 2>/dev/null | awk '/Candidate:/ {print $2}' | grep -qv '^(none)$'
+}
+
+sb_enabled() { command -v mokutil >/dev/null 2>&1 && mokutil --sb-state 2>/dev/null | grep -qi 'SecureBoot enabled'; }
+
+# Garante contrib/non-free/non-free-firmware (ISO sem esses componentes nao acha firmware nem NVIDIA).
+ensure_components() {
+    if ! has_candidate firmware-linux; then
+        echo "==> Habilitando contrib/non-free/non-free-firmware"
+        echo "deb $MIRROR $CODENAME $COMPONENTS" > /etc/apt/sources.list.d/andrey-nonfree.list
+        apt-get update
+    fi
+}
+
+enable_backports() {
+    local f=/etc/apt/sources.list.d/andrey-backports.list
+    if [ ! -f "$f" ]; then
+        echo "==> Habilitando $CODENAME-backports"
+        echo "deb $MIRROR $CODENAME-backports $COMPONENTS" > "$f"
+    fi
+    apt-get update
+}
+
+# Secure Boot: o modulo do DKMS (NVIDIA, Broadcom) so carrega se for assinado com uma chave cadastrada (MOK).
+# Cria a chave ANTES de instalar, para o DKMS ja assinar o modulo na primeira compilacao.
+secureboot_prep() {
+    sb_enabled || return 0
+    echo "==> Secure Boot ligado: preparando a chave de assinatura dos modulos"
+    apt-get install -y dkms mokutil shim-signed || true
+    if [ ! -s "$MOK_PUB" ] && command -v update-secureboot-policy >/dev/null 2>&1; then
+        update-secureboot-policy --new-key || true
+    fi
+}
+
+mok_needed() {
+    sb_enabled && [ -s "$MOK_PUB" ] && ! mokutil --test-key "$MOK_PUB" 2>/dev/null | grep -qi 'already enrolled'
+}
+
+do_install() {
+    local target="$1"; shift
+    local want=() p dkms=0 rec=()
+    for p in "$@"; do
+        has_candidate "$p" && want+=("$p") || echo "    (pulando $p: nao existe nesta versao do Debian)"
+        case "$p" in nvidia-*|*-dkms) dkms=1; rec=(--install-recommends) ;; esac
+    done
+    [ "${#want[@]}" -ge 1 ] || { echo "Nada para instalar."; return 0; }
+    [ "$dkms" = 1 ] && secureboot_prep
+    echo "==> Instalando: ${want[*]}"
+    if [ -n "$target" ]; then
+        apt-get install -y "${rec[@]}" -t "$target" "${want[@]}"
+    else
+        apt-get install -y "${rec[@]}" "${want[@]}"
+    fi
+    if [ "$dkms" = 1 ] && mok_needed; then echo "ANDREY-MOK-NEEDED"; fi
+    echo "ANDREY-DRIVERS-OK"
+}
+
+case "$cmd" in
+install)
+    check_pkgs "$@"
+    apt-get update || echo "Aviso: apt-get update falhou (sem internet?); tentando com os indices que existem."
+    ensure_components
+    do_install "" "$@" ;;
+install-newer)
+    check_pkgs "$@"
+    enable_backports
+    ensure_components
+    do_install "$CODENAME-backports" "$@" ;;
+mok-enroll)
+    read -r pw || true
+    [ "${#pw}" -ge 8 ] || { echo "A senha precisa ter pelo menos 8 caracteres." >&2; exit 2; }
+    [ -s "$MOK_PUB" ] || { echo "Chave $MOK_PUB nao encontrada." >&2; exit 2; }
+    if mokutil --test-key "$MOK_PUB" 2>/dev/null | grep -qi 'already enrolled'; then echo "Chave ja cadastrada."; exit 0; fi
+    printf '%s\n%s\n' "$pw" "$pw" | mokutil --import "$MOK_PUB" ;;
+fwupd-refresh)
+    command -v fwupdmgr >/dev/null 2>&1 || { echo "fwupd nao instalado." >&2; exit 2; }
+    fwupdmgr refresh --force || true ;;
+fwupd-list)
+    command -v fwupdmgr >/dev/null 2>&1 || { echo "fwupd nao instalado." >&2; exit 2; }
+    fwupdmgr get-updates --no-unreported-check 2>&1 || true ;;
+fwupd-apply)
+    command -v fwupdmgr >/dev/null 2>&1 || { echo "fwupd nao instalado." >&2; exit 2; }
+    fwupdmgr update -y --no-reboot-check ;;
+*)
+    echo "uso: drivers-helper install|install-newer|mok-enroll|fwupd-refresh|fwupd-list|fwupd-apply ..." >&2; exit 2 ;;
+esac

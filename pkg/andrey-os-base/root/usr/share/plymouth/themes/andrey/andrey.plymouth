@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Andrey OS
+Description=Splash do Andrey OS
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/andrey
+ScriptFile=/usr/share/plymouth/themes/andrey/andrey.script
