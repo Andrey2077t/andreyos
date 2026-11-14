@@ -1,0 +1,385 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""Loja de Aplicativos do Andrey OS: instalar e remover programas com um clique.
+
+  andrey-store            abre a loja (catálogo + busca em todos os pacotes do Debian)
+  andrey-store ARQ.deb    instala um arquivo .deb baixado (duplo clique no arquivo)
+"""
+import os
+import subprocess
+import sys
+import threading
+import urllib.request
+
+import gi
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import GLib, Gtk  # noqa: E402
+
+HELPER = "/usr/lib/andrey-os/apt-helper"
+
+# (nome, descrição, categoria, pacotes apt, extras)  extras: i386=True | url="..." (baixa o .deb oficial)
+CATALOG = [
+    ("Chromium", "Navegador de código aberto, base do Chrome", "Internet", ["chromium"], {}),
+    ("Google Chrome", "Baixa o instalador oficial do Google", "Internet", ["google-chrome-stable"],
+     {"url": "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb"}),
+    ("Thunderbird", "E-mails, calendário e contatos", "Internet", ["thunderbird"], {}),
+    ("Telegram", "Mensagens e grupos", "Internet", ["telegram-desktop"], {}),
+    ("Discord", "Baixa o instalador oficial do Discord", "Internet", ["discord"],
+     {"url": "https://discord.com/api/download?platform=linux&format=deb"}),
+    ("qBittorrent", "Cliente de torrent", "Internet", ["qbittorrent"], {}),
+    ("Transmission", "Cliente de torrent leve", "Internet", ["transmission-gtk"], {}),
+    ("FileZilla", "Transferência de arquivos por FTP/SFTP", "Internet", ["filezilla"], {}),
+    ("LibreOffice", "Word, Excel e PowerPoint (Writer, Calc, Impress) em português",
+     "Escritório", ["libreoffice", "libreoffice-l10n-pt-br", "libreoffice-gtk3"], {}),
+    ("Leitor de PDF (Atril)", "Abre e lê arquivos PDF", "Escritório", ["atril"], {}),
+    ("VLC", "Toca praticamente qualquer vídeo e música", "Mídia", ["vlc"], {}),
+    ("MPV", "Player de vídeo leve e rápido", "Mídia", ["mpv"], {}),
+    ("Audacity", "Editor de áudio", "Mídia", ["audacity"], {}),
+    ("OBS Studio", "Gravação de tela e transmissões ao vivo", "Mídia", ["obs-studio"], {}),
+    ("Kdenlive", "Editor de vídeo", "Mídia", ["kdenlive"], {}),
+    ("HandBrake", "Conversor de vídeo", "Mídia", ["handbrake"], {}),
+    ("GIMP", "Edição de imagens (alternativa ao Photoshop)", "Gráficos", ["gimp"], {}),
+    ("Krita", "Pintura e ilustração digital", "Gráficos", ["krita"], {}),
+    ("Inkscape", "Desenho vetorial (alternativa ao Illustrator)", "Gráficos", ["inkscape"], {}),
+    ("Blender", "Modelagem 3D, animação e renderização", "Gráficos", ["blender"], {}),
+    ("Steam", "Loja e biblioteca de jogos (habilita 32 bits)", "Jogos", ["steam-installer"], {"i386": True}),
+    ("Lutris", "Organiza jogos de várias plataformas", "Jogos", ["lutris"], {}),
+    ("Wine", "Roda programas do Windows (.exe) no Andrey OS", "Jogos", ["wine", "wine32"], {"i386": True}),
+    ("VS Code", "Baixa o instalador oficial do editor da Microsoft", "Desenvolvimento", ["code"],
+     {"url": "https://code.visualstudio.com/sha/download?build=stable&os=linux-deb-x64"}),
+    ("Geany", "Editor de código leve", "Desenvolvimento", ["geany"], {}),
+    ("Git (interface gráfica)", "Histórico e commits sem terminal", "Desenvolvimento", ["git-gui", "gitk"], {}),
+    ("Timeshift", "Pontos de restauração do sistema (como o Windows)", "Sistema", ["timeshift"], {}),
+    ("BleachBit", "Limpa arquivos temporários e libera espaço", "Sistema", ["bleachbit"], {}),
+    ("GParted", "Gerencia partições de disco", "Sistema", ["gparted"], {}),
+    ("Bluetooth (Blueman)", "Conecta fones, mouses e celulares por Bluetooth", "Sistema", ["blueman"], {}),
+    ("Impressoras", "Configuração de impressoras e scanners", "Sistema",
+     ["cups", "system-config-printer"], {}),
+    ("Captura de tela", "Programa de captura usado por Print e Super+Shift+S", "Utilitários", ["mate-utils"], {}),
+    ("7-Zip", "Abre e cria arquivos .7z, .zip, .rar", "Utilitários", ["p7zip-full"], {}),
+    ("Flameshot", "Captura de tela com anotações", "Utilitários", ["flameshot"], {}),
+    ("Calculadora", "Calculadora do MATE", "Utilitários", ["mate-calc"], {}),
+    ("Editor de texto (Pluma)", "Bloco de notas avançado", "Utilitários", ["pluma"], {}),
+    ("Visualizador de imagens", "Abre fotos e imagens", "Utilitários", ["eom"], {}),
+]
+CATS = ["Todos"] + sorted({c[2] for c in CATALOG})
+CAT_ICON = {"Internet": "applications-internet", "Escritório": "applications-office",
+            "Mídia": "applications-multimedia", "Gráficos": "applications-graphics",
+            "Jogos": "applications-games", "Desenvolvimento": "applications-development",
+            "Sistema": "applications-system", "Utilitários": "applications-utilities"}
+
+CSS = b"""
+window.store { background-color: #0b0306; color: #ededf0; }
+.store entry { background-color: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 8px; padding: 8px 10px; color: #ededf0; }
+.store entry:focus { border-color: #ed1226; }
+.store list, .store list row { background-color: transparent; }
+.store list row { border-bottom: 1px solid rgba(255,255,255,0.06); padding: 6px 8px; }
+.store .name { font-weight: bold; }
+.store .dim { color: rgba(237,237,240,0.6); font-size: 9pt; }
+.store button { background-image: none; background-color: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.14); border-radius: 8px; color: #ededf0; padding: 5px 14px; }
+.store button:hover { border-color: #ed1226; }
+.store button.suggested-action { background-color: #ed1226; border-color: #ed1226; color: #fff; }
+.store button.destructive-action { background-color: transparent; border-color: rgba(237,18,38,0.7); }
+.store button.cat:checked { background-color: rgba(237,18,38,0.35); border-color: #ed1226; }
+.store .status { background-color: rgba(255,255,255,0.05); padding: 6px 12px; }
+"""
+
+
+def dpkg_installed(pkgs):
+    """Conjunto dos pacotes (de 'pkgs') que estão instalados."""
+    if not pkgs:
+        return set()
+    try:
+        out = subprocess.run(["dpkg-query", "-W", "-f=${Package} ${db:Status-Abbrev}\n", *pkgs],
+                             capture_output=True, text=True, timeout=20).stdout
+    except (OSError, subprocess.SubprocessError):
+        return set()
+    return {ln.split()[0] for ln in out.splitlines() if len(ln.split()) >= 2 and ln.split()[1].startswith("ii")}
+
+
+def apt_search(q):
+    try:
+        out = subprocess.run(["apt-cache", "search", "--names-only", q], capture_output=True,
+                             text=True, timeout=20).stdout
+    except (OSError, subprocess.SubprocessError):
+        return []
+    res = []
+    for ln in out.splitlines():
+        if " - " in ln:
+            name, desc = ln.split(" - ", 1)
+            res.append((name.strip(), desc.strip()))
+    res.sort(key=lambda r: (len(r[0]), r[0]))
+    return res[:40]
+
+
+class Store(Gtk.Window):
+    def __init__(self):
+        super().__init__(title="Loja de Aplicativos")
+        self.set_default_size(820, 620)
+        self.set_position(Gtk.WindowPosition.CENTER)
+        self.get_style_context().add_class("store")
+        self.cat = "Todos"
+        self.busy = False
+        self.installed = set()
+        self.gen = 0
+
+        root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        self.add(root)
+        top = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        top.set_margin_start(16)
+        top.set_margin_end(16)
+        top.set_margin_top(14)
+        top.set_margin_bottom(6)
+        self.entry = Gtk.SearchEntry()
+        self.entry.set_placeholder_text("Buscar programas (catálogo e todos os pacotes do Debian)")
+        self.entry.connect("search-changed", lambda *_: self.refresh())
+        top.pack_start(self.entry, False, False, 0)
+        cats = Gtk.Box(spacing=6)
+        first = None
+        for c in CATS:
+            b = Gtk.RadioButton.new_with_label_from_widget(first, c)
+            b.set_mode(False)
+            b.get_style_context().add_class("cat")
+            if first is None:
+                first = b
+            b.connect("toggled", self._on_cat, c)
+            cats.pack_start(b, False, False, 0)
+        sc0 = Gtk.ScrolledWindow()
+        sc0.set_policy(Gtk.PolicyType.AUTOMATIC, Gtk.PolicyType.NEVER)
+        sc0.add(cats)
+        top.pack_start(sc0, False, False, 0)
+        root.pack_start(top, False, False, 0)
+
+        sc = Gtk.ScrolledWindow()
+        sc.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        self.list = Gtk.ListBox()
+        self.list.set_selection_mode(Gtk.SelectionMode.NONE)
+        sc.add(self.list)
+        root.pack_start(sc, True, True, 0)
+
+        sb = Gtk.Box(spacing=8)
+        sb.get_style_context().add_class("status")
+        self.spin = Gtk.Spinner()
+        sb.pack_start(self.spin, False, False, 0)
+        self.status = Gtk.Label(label="Pronto.", xalign=0)
+        self.status.set_ellipsize(3)
+        sb.pack_start(self.status, True, True, 0)
+        upd = Gtk.Button(label="Atualizar lista")
+        upd.connect("clicked", lambda *_: self.run_helper(["update"], "Atualizando a lista de programas…"))
+        sb.pack_end(upd, False, False, 0)
+        root.pack_end(sb, False, False, 0)
+        self.connect("destroy", Gtk.main_quit)
+        self.refresh()
+
+    def _on_cat(self, btn, cat):
+        if btn.get_active():
+            self.cat = cat
+            self.refresh()
+
+    # ----- lista -----
+    def refresh(self):
+        self.installed = dpkg_installed([p for c in CATALOG for p in c[3][:1]])
+        q = self.entry.get_text().strip().casefold()
+        for ch in self.list.get_children():
+            self.list.remove(ch)
+        for name, desc, cat, pkgs, extra in CATALOG:
+            if self.cat != "Todos" and cat != self.cat:
+                continue
+            if q and q not in name.casefold() and q not in desc.casefold() and q not in pkgs[0]:
+                continue
+            self.list.add(self._row(name, desc, cat, pkgs, extra, pkgs[0] in self.installed))
+        self.list.show_all()
+        self.gen += 1                      # invalida buscas antigas ainda em andamento
+        if len(q) >= 3 and self.cat == "Todos":
+            gen = self.gen
+            threading.Thread(target=self._search_apt, args=(q, gen), daemon=True).start()
+
+    def _search_apt(self, q, gen):
+        res = apt_search(q)
+        GLib.idle_add(self._apt_results, res, gen)
+
+    def _apt_results(self, res, gen):
+        if gen != self.gen or self.cat != "Todos":
+            return False
+        known = {p for c in CATALOG for p in c[3]}
+        res = [r for r in res if r[0] not in known]
+        inst = dpkg_installed([r[0] for r in res])
+        for name, desc in res:
+            self.list.add(self._row(name, desc, None, [name], {}, name in inst))
+        self.list.show_all()
+        if not res and not self.list.get_children():
+            self.status.set_text("Nada encontrado. Se a lista de programas estiver vazia, clique em “Atualizar lista”.")
+        return False
+
+    def _row(self, name, desc, cat, pkgs, extra, installed):
+        row = Gtk.ListBoxRow()
+        row.set_activatable(False)
+        hb = Gtk.Box(spacing=12)
+        icon = pkgs[0] if Gtk.IconTheme.get_default().has_icon(pkgs[0]) else CAT_ICON.get(cat, "package-x-generic")
+        img = Gtk.Image.new_from_icon_name(icon, Gtk.IconSize.DIALOG)
+        img.set_pixel_size(40)
+        hb.pack_start(img, False, False, 0)
+        vb = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
+        vb.set_valign(Gtk.Align.CENTER)
+        n = Gtk.Label(label=name, xalign=0)
+        n.get_style_context().add_class("name")
+        d = Gtk.Label(label=desc, xalign=0)
+        d.set_ellipsize(3)
+        d.get_style_context().add_class("dim")
+        vb.pack_start(n, False, False, 0)
+        vb.pack_start(d, False, False, 0)
+        hb.pack_start(vb, True, True, 0)
+        btn = Gtk.Button(label="Remover" if installed else "Instalar")
+        btn.get_style_context().add_class("destructive-action" if installed else "suggested-action")
+        btn.set_valign(Gtk.Align.CENTER)
+        btn.connect("clicked", self._on_click, name, pkgs, extra, installed)
+        hb.pack_end(btn, False, False, 0)
+        row.add(hb)
+        return row
+
+    # ----- ações -----
+    def _on_click(self, _b, name, pkgs, extra, installed):
+        if self.busy:
+            return
+        if installed:
+            self.run_helper(["remove", *pkgs], "Removendo %s…" % name)
+        elif extra.get("url"):
+            self.install_url(name, extra["url"])
+        else:
+            self.run_helper(["install-i386" if extra.get("i386") else "install", *pkgs],
+                            "Instalando %s… (pode demorar)" % name)
+
+    def install_url(self, name, url):
+        self._set_busy(True, "Baixando %s…" % name)
+
+        def work():
+            dest = os.path.join(GLib.get_user_cache_dir(), "andrey-store")
+            path = os.path.join(dest, name.replace(" ", "_") + ".deb")
+            try:
+                os.makedirs(dest, exist_ok=True)   # dentro do try: se falhar, a loja nao fica "ocupada" para sempre
+                req = urllib.request.Request(url, headers={"User-Agent": "andrey-store"})
+                with urllib.request.urlopen(req, timeout=60) as r, open(path, "wb") as f:
+                    while True:
+                        chunk = r.read(1 << 16)
+                        if not chunk:
+                            break
+                        f.write(chunk)
+            except Exception as e:  # noqa: BLE001
+                GLib.idle_add(self._finish, False, "Falha no download: %s" % e)
+                return
+            # libera e inicia a instalação no mesmo callback: nenhum clique entra no meio
+            GLib.idle_add(self._after_download, name, path)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _after_download(self, name, path):
+        self._set_busy(False, "")
+        self.run_helper(["install-deb", path], "Instalando %s…" % name)
+        return False
+
+    def _set_busy(self, busy, msg):
+        self.busy = busy
+        self.list.set_sensitive(not busy)
+        if busy:
+            self.spin.start()
+        else:
+            self.spin.stop()
+        if msg:
+            self.status.set_text(msg)
+        return False
+
+    def run_helper(self, args, msg):
+        if self.busy:
+            return
+        self._set_busy(True, msg)
+
+        def work():
+            tail = []
+            try:
+                p = subprocess.Popen(["pkexec", HELPER, *args], stdout=subprocess.PIPE,
+                                     stderr=subprocess.STDOUT, text=True, errors="replace")
+                for line in p.stdout:
+                    line = line.strip()
+                    if line:
+                        tail.append(line)
+                        tail = tail[-8:]
+                        GLib.idle_add(self.status.set_text, line[:140])
+                rc = p.wait()
+            except OSError as e:
+                rc, tail = 1, [str(e)]
+            cancelled = rc in (126, 127) and not tail     # pkexec: janela de senha fechada/recusada
+            GLib.idle_add(self._finish, rc == 0, "\n".join(tail), cancelled)
+        threading.Thread(target=work, daemon=True).start()
+
+    def _finish(self, ok, text, cancelled=False):
+        if cancelled:
+            self._set_busy(False, "Cancelado.")
+            self.refresh()
+            return False
+        self._set_busy(False, "Concluído." if ok else "Não foi possível concluir.")
+        if not ok and text:
+            dlg = Gtk.MessageDialog(transient_for=self, modal=True, message_type=Gtk.MessageType.ERROR,
+                                    buttons=Gtk.ButtonsType.CLOSE, text="Algo deu errado")
+            dlg.format_secondary_text(text[-600:])
+            dlg.run()
+            dlg.destroy()
+        self.refresh()
+        return False
+
+
+def install_deb_dialog(path):
+    path = os.path.abspath(path)
+    if not os.path.isfile(path):
+        print("Arquivo não encontrado:", path, file=sys.stderr)
+        return 1
+
+    def field(f):
+        try:
+            return subprocess.run(["dpkg-deb", "-f", path, f], capture_output=True, text=True,
+                                  timeout=15).stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            return ""
+    pkg, ver, desc = field("Package"), field("Version"), field("Description").split("\n")[0]
+    if not pkg:
+        d = Gtk.MessageDialog(message_type=Gtk.MessageType.ERROR, buttons=Gtk.ButtonsType.CLOSE,
+                              text="Esse arquivo não é um pacote .deb válido.")
+        d.run()
+        return 1
+    d = Gtk.MessageDialog(message_type=Gtk.MessageType.QUESTION, buttons=Gtk.ButtonsType.NONE,
+                          text="Instalar %s %s?" % (pkg, ver))
+    d.format_secondary_text(desc or os.path.basename(path))
+    d.add_button("Cancelar", Gtk.ResponseType.CANCEL)
+    d.add_button("Instalar", Gtk.ResponseType.OK)
+    if d.run() != Gtk.ResponseType.OK:
+        return 0
+    d.destroy()
+    while Gtk.events_pending():
+        Gtk.main_iteration()
+    rc = subprocess.run(["pkexec", HELPER, "install-deb", path], capture_output=True, text=True)
+    r = Gtk.MessageDialog(message_type=Gtk.MessageType.INFO if rc.returncode == 0 else Gtk.MessageType.ERROR,
+                          buttons=Gtk.ButtonsType.CLOSE,
+                          text=("%s instalado." % pkg) if rc.returncode == 0 else "A instalação falhou.")
+    if rc.returncode != 0:
+        r.format_secondary_text((rc.stdout + rc.stderr)[-500:])
+    r.run()
+    return rc.returncode
+
+
+if __name__ == "__main__":
+    prov = Gtk.CssProvider()
+    prov.load_from_data(CSS)
+    from gi.repository import Gdk  # noqa: E402
+    Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), prov,
+                                             Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+    args = [a for a in sys.argv[1:] if not a.startswith("-")]
+    if args:
+        a = args[0]
+        if a.startswith("file://"):
+            from urllib.parse import unquote, urlparse
+            a = unquote(urlparse(a).path)
+        sys.exit(install_deb_dialog(a))
+    win = Store()
+    win.show_all()
+    Gtk.main()

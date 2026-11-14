@@ -1,0 +1,109 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""Jogos do Andrey OS: Steam, Proton e Wine.
+
+  andrey-games               janela: diagnóstico, reparo e Proton-GE
+  andrey-games --check       relatório em texto (não instala nada)
+  andrey-games --proton-ge   baixa e instala o Proton-GE mais novo (sem root, SHA-512 conferido)
+  andrey-games --repair      instala o que faltar (Steam, Wine, bibliotecas de 32 bits); pede senha
+"""
+import subprocess
+import sys
+
+sys.path.insert(0, "/usr/lib/andrey-os")
+import andrey_games as G  # noqa: E402
+
+TITLE = "Jogos (Steam, Proton e Wine)"
+APT_HELPER = "/usr/lib/andrey-os/apt-helper"
+
+
+def zenity(*args):
+    try:
+        r = subprocess.run(["zenity", "--no-markup", "--title=" + TITLE, *args], capture_output=True, text=True)
+    except OSError:
+        return 1, ""
+    return r.returncode, r.stdout.strip()
+
+
+def repair_cmd():
+    return ["pkexec", APT_HELPER, "install-i386", *G.REPAIR_PACKAGES]
+
+
+def cli_repair():
+    return subprocess.call(repair_cmd())
+
+
+def cli_proton():
+    try:
+        G.install_proton_ge()
+    except Exception as e:  # noqa: BLE001 - qualquer falha vira mensagem, nunca traceback para a pessoa
+        print("Erro: %s" % e, file=sys.stderr)
+        return 1
+    return 0
+
+
+def gui_proton():
+    """Roda o download com uma barra de progresso indeterminada."""
+    p = subprocess.Popen(["zenity", "--progress", "--pulsate", "--auto-close", "--no-cancel",
+                          "--title=" + TITLE, "--text=Instalando o Proton-GE…"], stdin=subprocess.PIPE, text=True)
+    err = None
+    try:
+        G.install_proton_ge(say=lambda s: (p.stdin.write("# %s\n" % s), p.stdin.flush()))
+    except Exception as e:  # noqa: BLE001
+        err = str(e)
+    finally:
+        try:
+            p.stdin.close()
+        except OSError:
+            pass
+        p.wait()
+    zenity("--error" if err else "--info", "--width=420",
+           "--text=" + (err or "Proton-GE instalado. Reinicie o Steam e escolha em Configurações > Compatibilidade."))
+
+
+def gui():
+    while True:
+        res = G.diagnose()
+        missing = [r for r in res if r[1] is False]
+        status = "Tudo certo para jogar." if not missing else \
+            "Faltam %d item(ns):\n  - %s" % (len(missing), "\n  - ".join(r[0] for r in missing))
+        rc, choice = zenity("--list", "--width=520", "--height=360", "--column=ação", "--column=descrição",
+                            "--hide-header", "--text=" + status,
+                            "reparar", "Instalar/reparar Steam, Wine e bibliotecas de 32 bits",
+                            "proton", "Instalar o Proton-GE (versão da comunidade, mais atualizada)",
+                            "relatorio", "Ver o relatório completo")
+        if rc != 0:
+            return 0
+        if choice == "reparar":
+            zenity("--info", "--width=420", "--text=Vai pedir sua senha e instalar. Pode demorar.")
+            subprocess.call(repair_cmd())
+        elif choice == "proton":
+            gui_proton()
+        elif choice == "relatorio":
+            _show(G.render_report(res))
+
+
+def _show(text):
+    try:
+        subprocess.run(["zenity", "--text-info", "--title=" + TITLE, "--width=640", "--height=420",
+                        "--font=monospace"], input=text, text=True)
+    except OSError:
+        print(text)
+
+
+def main(argv):
+    if "--check" in argv:
+        print(G.render_report(G.diagnose()))
+        return 0
+    if "--proton-ge" in argv:
+        return cli_proton()
+    if "--repair" in argv:
+        return cli_repair()
+    if any(a in argv for a in ("-h", "--help")):
+        print(__doc__)
+        return 0
+    return gui()
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

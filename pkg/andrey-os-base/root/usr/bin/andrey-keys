@@ -1,0 +1,397 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""Atalhos de teclado estilo Windows do Andrey OS.
+
+  andrey-keys --apply   cria os atalhos que ainda não existem (não mexe nos seus)
+  andrey-keys --reset   recria TODOS os atalhos do Andrey OS com os valores padrão
+  andrey-keys --sanitize apaga atalhos "soltos" (uma letra/número sem modificador), que travam a tecla
+  andrey-keys --fix-super liga a tecla Super a um modificador real do X (sem isso "<Super>e" vira só "e")
+  andrey-keys --heal     conserta a Super, limpa atalhos soltos e TESTA no X se alguma tecla ainda está
+                         sendo engolida; se estiver, desliga os atalhos com Super que causam isso
+  andrey-keys --diagnose mostra o estado da tecla Super, os atalhos e as teclas que estão sendo engolidas
+  andrey-keys --repair  --sanitize + recria os que faltam (os atalhos com Super só se a tecla Super funcionar)
+  andrey-keys --help    mostra a lista (Super+F1)
+
+Atalhos de janelas (Super+D, Super+setas) vêm do Marco via padrões do sistema.
+"""
+import os
+import re
+import subprocess
+import sys
+import time
+
+import gi
+
+gi.require_version("Gtk", "3.0")
+from gi.repository import Gdk, Gio, Gtk  # noqa: E402
+
+SCHEMA = "org.mate.control-center.keybinding"
+BASE = "/org/mate/desktop/keybindings/"
+
+# slug, nome, atalho, comando
+CUSTOM = [
+    ("andrey-files", "Abrir Arquivos", "<Super>e", "caja --no-desktop"),
+    ("andrey-run", "Executar", "<Super>r", "mate-panel --run-dialog"),
+    ("andrey-lock", "Bloquear a tela", "<Super>l", "andrey-lock"),
+    ("andrey-clipboard", "Histórico da área de transferência", "<Super>v", "andrey-clipboard --toggle"),
+    ("andrey-snip", "Recorte de tela", "<Super><Shift>s", "andrey-screenshot --area"),
+    ("andrey-search", "Pesquisar no Menu Iniciar", "<Super>s", "andrey-start --search"),
+    ("andrey-taskmgr", "Gerenciador de tarefas", "<Control><Shift>Escape", "mate-system-monitor"),
+    ("andrey-settings", "Configurações", "<Super>i", "mate-control-center"),
+    ("andrey-ai", "Abrir o Andrey AI", "<Super>space", "andrey-ai"),
+    ("andrey-keys-help", "Lista de atalhos", "<Super>F1", "andrey-keys --help"),
+    # volume: Fn+F2 / Fn+F3 / Fn+F1 enviam estas teclas na maioria dos teclados
+    ("andrey-vol-down", "Diminuir o volume", "XF86AudioLowerVolume", "andrey-volume down"),
+    ("andrey-vol-up", "Aumentar o volume", "XF86AudioRaiseVolume", "andrey-volume up"),
+    ("andrey-vol-mute", "Silenciar", "XF86AudioMute", "andrey-volume mute"),
+    # alternativa para teclados sem Fn ou com o Fn travado
+    ("andrey-vol-down2", "Diminuir o volume (alternativo)", "<Super>F2", "andrey-volume down"),
+    ("andrey-vol-up2", "Aumentar o volume (alternativo)", "<Super>F3", "andrey-volume up"),
+    ("andrey-vol-mute2", "Silenciar (alternativo)", "<Super>F4", "andrey-volume mute"),
+]
+# Ctrl+1 ... Ctrl+9: vai para a aba N da barra superior (andrey-tabs). Ficam de fora da lista de atalhos
+# (Super+F1), que mostra uma linha só para as nove.
+CUSTOM += [("andrey-tab-%d" % i, "Ir para a aba %d" % i, "<Control>%d" % i, "andrey-tabs %d" % i)
+           for i in range(1, 10)]
+
+# só para exibir (vêm do sistema/Marco ou de programas)
+BUILTIN = [
+    ("Super", "Abre o Menu Iniciar"),
+    ("Super+D", "Mostrar a área de trabalho"),
+    ("Super+↑ / Super+↓", "Maximizar / restaurar a janela"),
+    ("Super+← / Super+→", "Encaixar a janela na metade esquerda / direita"),
+    ("Alt+Tab", "Alternar entre janelas"),
+    ("Ctrl+1 ... Ctrl+9", "Ir para a aba 1 a 9 da barra superior (de novo: próxima janela do mesmo programa, se agrupado)"),
+    ("Alt+F4", "Fechar a janela"),
+    ("Print", "Capturar a tela"),
+    ("Fn+F2 / Fn+F3 / Fn+F1", "Volume: diminuir / aumentar / silenciar (ou Super+F2 / F3 / F4)"),
+]
+
+
+def schema_ok():
+    src = Gio.SettingsSchemaSource.get_default()
+    return src is not None and src.lookup(SCHEMA, True) is not None
+
+
+def entry(slug):
+    return Gio.Settings.new_with_path(SCHEMA, BASE + slug + "/")
+
+
+# Marco (gerenciador de janelas) tem os próprios atalhos; o mesmo problema acontece com eles
+MARCO_SCHEMAS = ("org.mate.Marco.global-keybindings", "org.mate.Marco.window-keybindings")
+
+# Modificadores que de fato "seguram" a tecla: com eles o atalho só dispara quando o modificador está apertado.
+# Shift, Lock (Caps) e Mod2 (NumLock) NÃO contam: "<Shift>e" captura o E maiúsculo, "<Mod2>e" o E com NumLock ligado.
+# <Super> só conta se a tecla Super estiver mapeada num modificador (senão vira só "e").
+_REAL_MODS = {"control", "ctrl", "primary", "alt", "mod1", "meta", "mod4"}
+_TYPING_NAMES = {"space"}
+_BIND = re.compile(r"^\s*((?:<[^<>]+>)*)\s*(\S*)\s*$")
+
+
+def is_dangerous(binding, sup=True):
+    """True se o atalho captura uma tecla de digitação (letra, número, pontuação, espaço) sem um
+    modificador de verdade. Esses atalhos 'engolem' a tecla em TODOS os programas."""
+    m = _BIND.match(binding or "")
+    if not m:
+        return False
+    mods = {t.lower() for t in re.findall(r"<([^<>]+)>", m.group(1))}
+    key = m.group(2)
+    if not key or not (len(key) == 1 or key.lower() in _TYPING_NAMES):
+        return False
+    real = set(_REAL_MODS)
+    if sup:
+        real.add("super")
+    return not (mods & real)
+
+
+def has_super(binding):
+    return "<super>" in (binding or "").lower()
+
+
+def binding_key(binding):
+    m = _BIND.match(binding or "")
+    return m.group(2) if m else ""
+
+
+def _ax():
+    """Módulo andrey_x (acesso ao X11 via ctypes), ou None se não estiver disponível."""
+    here = os.path.dirname(os.path.realpath(__file__))
+    for d in ("/usr/lib/andrey-os", os.path.join(here, "..", "lib", "andrey-os")):
+        if os.path.isfile(os.path.join(d, "andrey_x.py")) and d not in sys.path:
+            sys.path.insert(0, d)
+    try:
+        import andrey_x
+        return andrey_x
+    except Exception:
+        return None
+
+
+def super_ok():
+    """True se a tecla Super está mapeada num modificador. Sem isso, '<Super>e' vira só 'e'.
+    Confere o mapa de modificadores do próprio X (o mesmo que o MATE usa), sem depender do GTK."""
+    ax = _ax()
+    if ax is not None:
+        try:
+            r = ax.super_is_modifier()
+        except Exception:
+            r = None
+        if r is not None:
+            return r
+    try:
+        km = Gdk.Keymap.get_for_display(Gdk.Display.get_default())
+        ok, state = km.map_virtual_modifiers(Gdk.ModifierType.SUPER_MASK)
+        return bool(ok) and bool(state & (Gdk.ModifierType.MOD2_MASK | Gdk.ModifierType.MOD3_MASK
+                                          | Gdk.ModifierType.MOD4_MASK | Gdk.ModifierType.MOD5_MASK))
+    except Exception:
+        return True  # sem display/Keymap: não dá para checar, segue o fluxo normal
+
+
+def fix_super():
+    """Liga Super_L/Super_R ao Mod4 no X. True se a Super passou a ser um modificador de verdade."""
+    ax = _ax()
+    if ax is None:
+        return False
+    try:
+        return bool(ax.fix_super_modifier())
+    except Exception:
+        return False
+
+
+def ensure_super():
+    """Garante que a Super funciona como modificador: conserta o mapa do X se preciso."""
+    if super_ok():
+        return True
+    if fix_super():
+        print("andrey-keys: tecla Super religada ao modificador Mod4", file=sys.stderr)
+        return super_ok()
+    return False
+
+
+def slugs():
+    try:
+        out = subprocess.run(["dconf", "list", BASE], capture_output=True, text=True, timeout=10).stdout
+    except (OSError, subprocess.SubprocessError):
+        return [c[0] for c in CUSTOM]
+    return [x.rstrip("/") for x in out.split() if x.endswith("/")]
+
+
+def marco_entries():
+    """[(Gio.Settings, chave, valor)] de todos os atalhos de texto do Marco."""
+    out = []
+    src = Gio.SettingsSchemaSource.get_default()
+    for schema in MARCO_SCHEMAS:
+        try:
+            if src is None or src.lookup(schema, True) is None:
+                continue                              # Settings.new() num esquema ausente derruba o programa
+            st = Gio.Settings.new(schema)
+            for k in st.list_keys():
+                v = st.get_value(k)
+                if v.get_type_string() == "s":
+                    out.append((st, k, v.get_string()))
+        except Exception:
+            continue
+    return out
+
+
+def sanitize(sup=None):
+    """Zera atalhos (do Andrey OS, seus e do Marco) que capturam uma tecla comum sem modificador de verdade.
+    Devolve quantos limpou."""
+    if sup is None:
+        sup = super_ok()
+    n = 0
+    for slug in slugs():
+        s = entry(slug)
+        b = s.get_string("binding")
+        if b and is_dangerous(b, sup):
+            print("andrey-keys: atalho solto '%s' em %s removido" % (b, slug), file=sys.stderr)
+            s.set_string("binding", "")
+            n += 1
+    for st, k, v in marco_entries():
+        if v and is_dangerous(v, sup):
+            print("andrey-keys: atalho solto '%s' do Marco (%s) removido" % (v, k), file=sys.stderr)
+            st.set_string(k, "disabled")
+            n += 1
+    Gio.Settings.sync()
+    return n
+
+
+def drop_super(only_keys=None):
+    """Desliga os atalhos com <Super> (do Andrey OS e do Marco). Com only_keys, só os que usam essas teclas.
+    Devolve a lista de (onde, atalho) desligados."""
+    wanted = None if only_keys is None else {k.lower() for k in only_keys}
+    gone = []
+    for slug in slugs():
+        s = entry(slug)
+        b = s.get_string("binding")
+        if b and has_super(b) and (wanted is None or binding_key(b).lower() in wanted):
+            s.set_string("binding", "")
+            gone.append((slug, b))
+    for st, k, v in marco_entries():
+        if v and has_super(v) and (wanted is None or binding_key(v).lower() in wanted):
+            st.set_string(k, "disabled")
+            gone.append((k, v))
+    Gio.Settings.sync()
+    return gone
+
+
+def probe():
+    """[(keycode, nome)] das teclas de digitação que algum programa já captura sozinhas; None se não deu para testar."""
+    ax = _ax()
+    if ax is None:
+        return None
+    try:
+        return ax.probe_grabbed_keys()
+    except Exception:
+        return None
+
+
+def log(msg):
+    print("andrey-keys: " + msg, file=sys.stderr)
+    try:
+        d = os.path.join(os.environ.get("XDG_CACHE_HOME") or os.path.expanduser("~/.cache"), "andrey-os")
+        os.makedirs(d, exist_ok=True)
+        f = os.path.join(d, "keys.log")
+        if os.path.exists(f) and os.path.getsize(f) > 50000:
+            os.remove(f)
+        with open(f, "a", encoding="utf-8") as fh:
+            fh.write(time.strftime("%Y-%m-%d %H:%M:%S ") + msg + "\n")
+    except OSError:
+        pass
+
+
+def heal(settle=2.0):
+    """Conserta de verdade: Super como modificador, atalhos soltos fora, e TESTA no X se sobrou alguma tecla
+    capturada. Se sobrou por causa de atalho com Super, desliga esses atalhos. Devolve 0 se tudo limpo."""
+    was_ok = super_ok()
+    sup = ensure_super()
+    if not sup:
+        log("Super sem modificador: atalhos com Super desligados")
+    if sup and not was_ok:
+        log("Super religada ao Mod4: recriando os atalhos com Super")
+        apply()                         # só recria se a Super acabou de ser consertada
+    else:
+        sanitize(sup)                   # não recria atalhos que a pessoa apagou de propósito
+    time.sleep(settle)                      # o MATE recaptura as teclas logo depois da mudança no dconf
+    bad = probe()
+    if bad is None:
+        return 0                            # sem X (ou sem as bibliotecas): nada para testar
+    if not bad:
+        return 0
+    names = [n for _c, n in bad]
+    log("teclas capturadas sozinhas: " + ", ".join(names))
+    gone = drop_super(only_keys=names)
+    for where, b in gone:
+        log("atalho desligado: %s (%s)" % (b, where))
+    time.sleep(settle)
+    bad = probe() or []
+    if bad:
+        # não são atalhos do Andrey OS: relata quem tem atalho com essas teclas para dar para investigar
+        log("ainda capturadas: " + ", ".join(n for _c, n in bad))
+        wanted = {n.lower() for _c, n in bad}
+        for slug in slugs():
+            b = entry(slug).get_string("binding")
+            if b and binding_key(b).lower() in wanted:
+                log("  atalho personalizado com essa tecla: %s (%s)" % (b, slug))
+        for _st, k, v in marco_entries():
+            if v and binding_key(v).lower() in wanted:
+                log("  atalho do Marco com essa tecla: %s (%s)" % (v, k))
+        return 1
+    log("teclas liberadas")
+    return 0
+
+
+def diagnose():
+    sup = super_ok()
+    print("Super mapeada como modificador:", "sim" if sup else "NAO (atalhos <Super>x viram so 'x')")
+    bad = 0
+    for slug in slugs():
+        b = entry(slug).get_string("binding")
+        flag = "  <-- SOLTO (engole a tecla)" if b and is_dangerous(b, sup) else ""
+        bad += bool(flag)
+        print("%-20s %s%s" % (slug, b or "(vazio)", flag))
+    for _st, k, v in marco_entries():
+        if v and v != "disabled" and is_dangerous(v, sup):
+            bad += 1
+            print("marco:%-20s %s  <-- SOLTO (engole a tecla)" % (k, v))
+    print("atalhos soltos:", bad)
+    grabbed = probe()
+    if grabbed is None:
+        print("teste no X: indisponivel (sem display ou sem libX11)")
+    elif grabbed:
+        print("teclas sendo engolidas AGORA (capturadas por outro programa):", ", ".join(n for _c, n in grabbed))
+    else:
+        print("teste no X: nenhuma tecla esta sendo engolida")
+    return 0
+
+
+def apply(force=False):
+    if not schema_ok():
+        print("andrey-keys: esquema do MATE ausente", file=sys.stderr)
+        return 1
+    sup = ensure_super()
+    sanitize(sup)
+    if not sup:
+        # Super sem modificador: criar '<Super>e' e cia travaria a tecla. Esses atalhos não são criados
+        # (e os do Andrey OS que já existirem são limpos), mas os que não usam Super (volume, Ctrl+Shift+Esc)
+        # continuam valendo: o gschema desliga o volume do MATE, então sem eles as teclas de volume morrem.
+        print("andrey-keys: tecla Super sem modificador; atalhos com Super não criados", file=sys.stderr)
+        drop_super()          # inclui Super+D / Super+setas do Marco, que também engoliriam D e as setas
+    for slug, name, binding, action in CUSTOM:
+        s = entry(slug)
+        if not sup and binding.startswith("<Super>"):
+            if s.get_string("binding"):
+                s.set_string("binding", "")
+            continue
+        if force or not s.get_string("binding"):
+            s.set_string("name", name)
+            s.set_string("action", action)
+            s.set_string("binding", binding)
+    Gio.Settings.sync()
+    return 0
+
+
+def pretty(b):
+    return (b.replace("<Super>", "Super+").replace("<Shift>", "Shift+")
+            .replace("<Control>", "Ctrl+").replace("<Alt>", "Alt+").replace("Escape", "Esc"))
+
+
+def show_help():
+    win = Gtk.Window(title="Atalhos do Andrey OS")
+    win.set_default_size(520, 560)
+    win.set_position(Gtk.WindowPosition.CENTER)
+    sc = Gtk.ScrolledWindow()
+    grid = Gtk.Grid(column_spacing=24, row_spacing=8, margin=20)
+    rows = BUILTIN + [(pretty(b), n) for sl, n, b, _ in CUSTOM if not sl.startswith("andrey-tab-")]
+    for i, (k, d) in enumerate(rows):
+        kl = Gtk.Label(label=k, xalign=0)
+        kl.set_markup("<b>%s</b>" % k.replace("&", "&amp;").replace("<", "&lt;"))
+        grid.attach(kl, 0, i, 1, 1)
+        grid.attach(Gtk.Label(label=d, xalign=0), 1, i, 1, 1)
+    sc.add(grid)
+    win.add(sc)
+    win.connect("destroy", Gtk.main_quit)
+    win.connect("key-press-event", lambda w, e: w.destroy() if e.keyval == 0xFF1B else None)
+    win.show_all()
+    Gtk.main()
+    return 0
+
+
+if __name__ == "__main__":
+    a = sys.argv[1] if len(sys.argv) > 1 else "--help"
+    if a == "--apply":
+        sys.exit(apply())
+    if a == "--reset":
+        sys.exit(apply(force=True))
+    if a == "--diagnose":
+        sys.exit(diagnose())
+    if a == "--sanitize":
+        ensure_super()
+        sanitize()
+        sys.exit(0)
+    if a == "--fix-super":
+        sys.exit(0 if ensure_super() else 1)
+    if a == "--heal":
+        sys.exit(heal())
+    if a == "--repair":
+        sys.exit(apply())  # sanitize + recria só o que está vazio (não pisa no que você personalizou)
+    sys.exit(show_help())

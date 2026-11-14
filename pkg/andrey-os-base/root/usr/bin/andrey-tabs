@@ -1,0 +1,213 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""Abas do Andrey OS: troca de janela por número e agrupamento na barra superior.
+
+  andrey-tabs N              vai para a aba N (1 a 9) da barra superior (Ctrl+1 ... Ctrl+9)
+  andrey-tabs --list         mostra as abas na ordem da barra e qual é a ativa
+  andrey-tabs --group MODO   agrupamento das janelas do mesmo programa: on | off | auto | toggle | status
+
+Sem agrupar, cada janela é uma aba e Ctrl+N vai para a N-ésima janela.
+Agrupado, cada programa é UMA aba (com todas as janelas dele) e Ctrl+N vai para o N-ésimo programa;
+apertar de novo o mesmo atalho passa para a próxima janela daquele programa.
+No modo "auto" o painel só agrupa quando falta espaço, então o Ctrl+N conta como no modo sem agrupar.
+"""
+import subprocess
+import sys
+
+APPLET_SCHEMA = "org.mate.panel.applet.window-list"
+OBJECTS = "/org/mate/panel/objects/"
+GROUP_KEY = "group-windows"
+MODES = {"on": "always", "off": "never", "auto": "auto"}
+
+
+# ---------------------------------------------------------------- lógica pura (testada sem X)
+
+def build_tabs(wins, grouped):
+    """wins: [(id, classe)] na ordem em que as janelas foram abertas. Devolve [[id, ...], ...], uma lista por aba.
+    A barra do MATE junta as janelas do mesmo programa lado a lado, na posição da primeira janela dele."""
+    order, by_class = [], {}
+    for wid, cls in wins:
+        if cls not in by_class:
+            by_class[cls] = []
+            order.append(cls)
+        by_class[cls].append(wid)
+    if grouped:
+        return [by_class[c] for c in order]
+    return [[wid] for c in order for wid in by_class[c]]
+
+
+def pick_window(tab, active, stacked):
+    """Qual janela da aba abrir. Se a ativa já é desta aba, passa para a próxima (volta ao começo);
+    senão, a que está mais à frente (stacked: ids da de trás para a da frente)."""
+    if active in tab:
+        return tab[(tab.index(active) + 1) % len(tab)]
+    rank = {wid: i for i, wid in enumerate(stacked)}
+    return max(tab, key=lambda w: rank.get(w, -1))
+
+
+def parse_n(arg):
+    try:
+        n = int(arg)
+    except (TypeError, ValueError):
+        return None
+    return n if 1 <= n <= 9 else None
+
+
+# ---------------------------------------------------------------- configuração do painel
+
+def _dconf_read(key):
+    try:
+        r = subprocess.run(["dconf", "read", key], capture_output=True, text=True, timeout=5)
+        return r.stdout.strip().strip("'")
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def prefs_path():
+    """Pasta do dconf com as opções da lista de janelas (o id do objeto vem do layout do painel)."""
+    try:
+        out = subprocess.run(["dconf", "list", OBJECTS], capture_output=True, text=True, timeout=5).stdout
+    except (OSError, subprocess.SubprocessError):
+        out = ""
+    for oid in out.split():
+        oid = oid.rstrip("/")
+        if oid and _dconf_read(OBJECTS + oid + "/applet-iid").endswith("WindowListApplet"):
+            return OBJECTS + oid + "/prefs/"
+    return OBJECTS + "window-list/prefs/"
+
+
+def _settings():
+    from gi.repository import Gio
+    src = Gio.SettingsSchemaSource.get_default()
+    if src is None or src.lookup(APPLET_SCHEMA, True) is None:
+        return None                      # Settings.new_with_path() num esquema ausente derruba o programa
+    return Gio.Settings.new_with_path(APPLET_SCHEMA, prefs_path())
+
+
+def get_group():
+    st = _settings()
+    return st.get_string(GROUP_KEY) if st is not None else "never"
+
+
+def set_group(value):
+    from gi.repository import Gio
+    st = _settings()
+    if st is None:
+        print("andrey-tabs: esquema da lista de janelas ausente (mate-panel instalado?)", file=sys.stderr)
+        return 1
+    st.set_string(GROUP_KEY, value)
+    Gio.Settings.sync()
+    return 0
+
+
+def all_workspaces():
+    st = _settings()
+    try:
+        return bool(st is not None and st.get_boolean("display-all-workspaces"))
+    except Exception:
+        return False
+
+
+# ---------------------------------------------------------------- janelas (libwnck)
+
+def _screen():
+    import gi
+    gi.require_version("Gtk", "3.0")
+    gi.require_version("Wnck", "3.0")
+    from gi.repository import Wnck
+    Wnck.set_client_type(Wnck.ClientType.PAGER)      # o Marco sempre aceita ativação vinda de "painel"
+    scr = Wnck.Screen.get_default()
+    scr.force_update()
+    return Wnck, scr
+
+
+def tab_windows(Wnck, scr):
+    """[(janela, classe)] das janelas que a barra superior mostra, na ordem de abertura."""
+    ws = scr.get_active_workspace()
+    every = all_workspaces()
+    kinds = (Wnck.WindowType.NORMAL, Wnck.WindowType.DIALOG)
+    out = []
+    for w in scr.get_windows():
+        if w.is_skip_tasklist() or w.get_window_type() not in kinds:
+            continue
+        if w.get_transient() is not None:             # diálogo de outra janela: fica junto com ela
+            continue
+        if not (every or w.is_pinned() or ws is None or w.is_on_workspace(ws)):
+            continue
+        cg = w.get_class_group()
+        cls = (cg.get_res_class() if cg is not None else "") or w.get_name() or str(w.get_xid())
+        out.append((w, cls))
+    return out
+
+
+def server_time():
+    """Marca de tempo (não zero) para a ativação. Como o cliente se declara "painel", o Marco aceita sempre;
+    o valor só existe para a libwnck não reclamar de timestamp 0."""
+    from gi.repository import GLib
+    return (GLib.get_monotonic_time() // 1000) & 0xFFFFFFFF or 1
+
+
+def current_tabs():
+    Wnck, scr = _screen()
+    items = tab_windows(Wnck, scr)
+    xid = {w.get_xid(): w for w, _c in items}
+    grouped = get_group() == "always"
+    tabs = build_tabs([(w.get_xid(), c) for w, c in items], grouped)
+    return Wnck, scr, xid, tabs, grouped
+
+
+def goto(n):
+    Wnck, scr, xid, tabs, _g = current_tabs()
+    if n > len(tabs):
+        return 0                                      # não existe essa aba: não faz nada
+    act = scr.get_active_window()
+    stacked = [w.get_xid() for w in scr.get_windows_stacked()]
+    target = xid[pick_window(tabs[n - 1], act.get_xid() if act is not None else None, stacked)]
+    ts = server_time()
+    if target.is_minimized():
+        target.unminimize(ts)
+    target.activate(ts)
+    from gi.repository import Gdk
+    Gdk.flush()
+    return 0
+
+
+def show_list():
+    _W, scr, xid, tabs, grouped = current_tabs()
+    act = scr.get_active_window()
+    aid = act.get_xid() if act is not None else None
+    print("agrupar janelas:", "sim" if grouped else "não")
+    for i, tab in enumerate(tabs, 1):
+        names = ["%s%s" % ("* " if x == aid else "", xid[x].get_name()) for x in tab]
+        print("%d  %s" % (i, "  |  ".join(names)))
+    return 0
+
+
+def group_cmd(arg):
+    cur = get_group()
+    if arg in (None, "status"):
+        print({"always": "on", "never": "off", "auto": "auto"}.get(cur, cur))
+        return 0
+    if arg == "toggle":
+        arg = "off" if cur == "always" else "on"
+    if arg not in MODES:
+        print("andrey-tabs: use on, off, auto, toggle ou status", file=sys.stderr)
+        return 2
+    return set_group(MODES[arg])
+
+
+def main(argv):
+    a = argv[1] if len(argv) > 1 else "--help"
+    if a == "--list":
+        return show_list()
+    if a == "--group":
+        return group_cmd(argv[2] if len(argv) > 2 else None)
+    n = parse_n(a)
+    if n is not None:
+        return goto(n)
+    print(__doc__)
+    return 0 if a in ("-h", "--help") else 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

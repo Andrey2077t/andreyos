@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Agrupar abas (liga/desliga)
+Comment=Junta as janelas do mesmo programa numa aba só na barra superior
+Exec=andrey-tabs --group toggle
+Icon=view-grid-symbolic
+Terminal=false
+Categories=GTK;Settings;
+Keywords=agrupar;abas;janelas;barra;tarefas;
