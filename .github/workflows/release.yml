@@ -106,6 +106,13 @@ jobs:
             echo "tentativa $i falhou; aguardando..." >&2; sleep $((i * 20))
           done
 
+      - name: Avisar no Discord o que mudou
+        continue-on-error: true
+        env:
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          DISCORD_CHANNEL_ID: "1571276154474856559"
+        run: bash pkg/notify-discord.sh "$VERSION" "$NOTES"
+
       - name: Registrar VERSION no repositório (usada pelas próximas ISOs)
         continue-on-error: true
         run: |
