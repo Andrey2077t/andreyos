@@ -1,6 +1,6 @@
 {
-  "version": "0.2.6",
-  "previous": "0.2.5",
-  "notes": "Correção de segurança",
-  "date": "2026-11-14T22:23:05Z"
+  "version": "0.2.7",
+  "previous": "0.2.6",
+  "notes": "Implementação de avisos das mudanças de atualizações no discord do Andrey OS",
+  "date": "2026-11-15T04:51:08Z"
 }
