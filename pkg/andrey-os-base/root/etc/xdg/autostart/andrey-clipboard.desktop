@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Histórico da área de transferência
+Exec=andrey-clipboard --daemon
+Terminal=false
+NoDisplay=true
+X-MATE-Autostart-enabled=true
+X-MATE-Autostart-Delay=2

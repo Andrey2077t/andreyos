@@ -1,0 +1,37 @@
+# Splash do Andrey OS: papel de parede cobrindo a tela + barra de progresso vermelha
+Window.SetBackgroundTopColor(0.012, 0.0, 0.008);
+Window.SetBackgroundBottomColor(0.012, 0.0, 0.008);
+
+sw = Window.GetWidth();
+sh = Window.GetHeight();
+
+bg = Image("bg.png");
+k1 = sw / bg.GetWidth();
+k2 = sh / bg.GetHeight();
+k = k1;
+if (k2 > k1) k = k2;
+bg_scaled = bg.Scale(bg.GetWidth() * k, bg.GetHeight() * k);
+bg_sprite = Sprite(bg_scaled);
+bg_sprite.SetX((sw - bg_scaled.GetWidth()) / 2);
+bg_sprite.SetY((sh - bg_scaled.GetHeight()) / 2);
+bg_sprite.SetZ(-100);
+
+bar_w = sw * 0.28;
+bar_h = 4;
+bar_x = (sw - bar_w) / 2;
+bar_y = sh * 0.93;
+
+track_img = Image("track.png");
+track = Sprite(track_img.Scale(bar_w, bar_h));
+track.SetPosition(bar_x, bar_y, 10);
+
+bar_img = Image("bar.png");
+bar = Sprite(bar_img.Scale(1, bar_h));
+bar.SetPosition(bar_x, bar_y, 11);
+
+fun progress_cb(duration, progress) {
+    w = Math.Int(bar_w * progress);
+    if (w < 1) w = 1;
+    bar.SetImage(bar_img.Scale(w, bar_h));
+}
+Plymouth.SetBootProgressFunction(progress_cb);
