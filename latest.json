@@ -1,6 +1,6 @@
 {
-  "version": "0.2.7",
-  "previous": "0.2.6",
-  "notes": "Implementação de avisos das mudanças de atualizações no discord do Andrey OS",
-  "date": "2026-11-15T04:51:08Z"
+  "version": "0.2.8",
+  "previous": "0.2.7",
+  "notes": "Adicionado função de clicar 2x no exe para usá-lo sem necessidade de usar terminais, onde ele detecta se é um instalador, programa ou game e executa para ti clicando 2x no executável",
+  "date": "2026-11-15T13:32:23Z"
 }
