@@ -99,15 +99,16 @@ def safe_extract(tar_path, dest, expected_top):
             tf.extractall(dest, members=members)
 
 
-def install_proton_ge(home=None, say=print):
-    """Baixa o Proton-GE mais novo, confere o SHA-512 e instala em compatibilitytools.d. Devolve a tag instalada."""
+def install_proton_ge(home=None, say=print, dest=None):
+    """Baixa o Proton-GE mais novo, confere o SHA-512 e instala em compatibilitytools.d (ou em `dest`, como faz o hook
+    da ISO em /usr/share/andrey-os/proton). Devolve a tag instalada."""
     say("Consultando a última versão do Proton-GE…")
     with _fetch(PROTON_GE_API) as r:
         rel = parse_release(json.load(r))
     if not rel:
         raise RuntimeError("Resposta inesperada do GitHub (versão do Proton-GE não reconhecida).")
     tag, tar_name, tar_url, sha_url = rel
-    dest = compat_dir(home)
+    dest = dest or compat_dir(home)
     if os.path.isdir(os.path.join(dest, tag)):
         say(f"{tag} já está instalado.")
         return tag
@@ -188,6 +189,8 @@ def diagnose(home=None):
     ge = installed_proton(home)
     res.append(("Proton-GE instalado (opcional)", True if ge else None,
                 "Opcional: o Steam já baixa o Proton oficial sozinho."))
+    res.append(("umu-run (.exe com duplo clique, via Proton-GE)", True if shutil.which("umu-run") else None,
+                "Sem ele os .exe abrem só no Wine puro. Atualize o Andrey OS ou reinstale a ISO mais nova."))
     return res
 
 

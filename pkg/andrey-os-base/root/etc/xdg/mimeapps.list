@@ -1,0 +1,21 @@
+# Andrey OS: .exe/.msi/.bat abrem com o andrey-exe (umu-launcher + Proton-GE). Quem escolher outro programa em
+# 'Abrir com' fica com a escolha dele (~/.config/mimeapps.list vale mais que este arquivo).
+[Default Applications]
+application/vnd.microsoft.portable-executable=andrey-exe.desktop;
+application/x-msdownload=andrey-exe.desktop;
+application/x-dosexec=andrey-exe.desktop;
+application/x-ms-dos-executable=andrey-exe.desktop;
+application/x-ms-ne-executable=andrey-exe.desktop;
+application/x-msi=andrey-exe.desktop;
+application/x-bat=andrey-exe.desktop;
+application/bat=andrey-exe.desktop;
+
+[Added Associations]
+application/vnd.microsoft.portable-executable=andrey-exe.desktop;andrey-exe-shortcut.desktop;
+application/x-msdownload=andrey-exe.desktop;andrey-exe-shortcut.desktop;
+application/x-dosexec=andrey-exe.desktop;andrey-exe-shortcut.desktop;
+application/x-ms-dos-executable=andrey-exe.desktop;andrey-exe-shortcut.desktop;
+application/x-ms-ne-executable=andrey-exe.desktop;andrey-exe-shortcut.desktop;
+application/x-msi=andrey-exe.desktop;andrey-exe-shortcut.desktop;
+application/x-bat=andrey-exe.desktop;andrey-exe-shortcut.desktop;
+application/bat=andrey-exe.desktop;andrey-exe-shortcut.desktop;

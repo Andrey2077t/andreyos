@@ -46,6 +46,13 @@ lzop
 cpio
 arj
 
+# ---- Executar .exe com duplo clique (andrey-exe + umu-launcher; o umu-launcher e o Proton-GE entram no hook 0155-umu)
+# icoutils: wrestool/icotool tiram o icone do .exe para o atalho   libnotify-bin: notify-send (aviso "abrindo...")
+# ca-certificates: o hook baixa o umu-launcher e o Proton-GE do GitHub por HTTPS
+icoutils
+libnotify-bin
+ca-certificates
+
 # ---- Painel de sistema (réplica do widget da direita)
 conky-all
 

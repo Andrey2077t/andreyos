@@ -83,9 +83,42 @@ a instalação e **quebra o build** se Steam, Wine ou as libs gráficas de 32 bi
   mais novo (SHA-512 conferido, sem root)
 - NVIDIA: o `andrey-drivers` agora também instala `nvidia-driver-libs-i386` (o Steam precisa)
 - `vm.max_map_count` alto (`/usr/lib/sysctl.d/80-andrey-games.conf`), exigido por vários jogos
-- Wine: arquivos `.exe` abrem com duplo clique; `winetricks` para runtimes (vcrun, dotnet, DXVK)
+- Arquivos `.exe` abrem com duplo clique pelo **Proton-GE** (veja a próxima seção); `winetricks` continua para runtimes (vcrun, dotnet, DXVK)
 
 A ISO fica ~1 GB maior por causa das bibliotecas de 32 bits.
+
+## Programas e jogos do Windows: duplo clique no .exe
+
+Dois cliques num `.exe`, `.msi` ou `.bat` abrem o programa com o **umu-launcher + Proton-GE**, sem instalar nem configurar nada:
+o `umu-launcher` e o Proton-GE já vêm dentro da ISO. Quem cuida disso é o `andrey-exe` (o programa padrão desses arquivos).
+
+- **Detecta o que é:** *jogo* (Steam/GOG/Unity/Unreal, DirectX/Vulkan, arquivos de jogo, pasta `steamapps`/`Games`...),
+  *instalador* (Inno Setup, NSIS, `setup.exe`, `.msi`, runtimes como `vc_redist`) ou *programa* comum. Se errar, o botão
+  **Trocar tipo** corrige na hora.
+- **Um "Windows" separado por jogo** (e por instalador); programas comuns dividem um só. Fica em `~/.local/share/andrey-os/exe/prefixes`.
+  Se o jogo tem `steam_appid.txt`, o `umu-run` recebe o `GAMEID` certo e aplica os ajustes do *protonfixes*.
+- **Na 1ª vez de cada arquivo** pergunta: **Executar** · **Executar e criar atalho** (nome + menu de aplicativos e/ou área de
+  trabalho, com o ícone do `.exe`) · **Trocar tipo** · **Cancelar**. Depois disso abre direto, sem perguntar.
+- **Instalador:** ao terminar, oferece criar o atalho do programa que apareceu instalado.
+- **Criar atalho depois:** botão direito no arquivo > *Abrir com* > **Criar atalho (Proton)**.
+- **Proton usado:** o `GE-Proton` mais novo entre o que veio na ISO (`/usr/share/andrey-os/proton`) e o que você instalou com
+  `andrey-games --proton-ge`. Sem nenhum, o `umu-run` baixa o mais novo sozinho.
+- **Sem o `umu-run`** (quem atualizou o sistema mas não reinstalou a ISO): abre no Wine puro, com aviso.
+
+Linha de comando: `andrey-exe ARQUIVO.exe` · `--shortcut ARQUIVO` (só cria o atalho) · `--info ARQUIVO` (mostra a detecção) ·
+`--check` (umu-run e Proton) · `--kind game|app|installer` · `--prefix PASTA` · `--no-ask`. O log da última execução fica em
+`~/.cache/andrey-os/exe.log`. Ajustes opcionais em `~/.config/andrey-os/exe.conf`:
+
+```
+ask=first        # first (pergunta só na 1ª vez) | always | never (nunca pergunta, só executa)
+proton=          # vazio = GE-Proton mais novo; ou um caminho / versão (GE-Proton10-4)
+gamemode=off     # on = jogos rodam com gamemoderun
+```
+
+**Primeira execução precisa de internet:** o `umu-run` baixa o ambiente do Proton (Steam Linux Runtime) uma única vez.
+O hook `config/hooks/live/0155-umu.hook.chroot` baixa o `.deb` do umu-launcher (Debian 13) e o Proton-GE do GitHub na hora do
+build, confere o SHA-256/SHA-512 e **quebra o build** se algo faltar. Isso deixa a ISO ~0,5 a 1 GB maior.
+O padrão dos tipos MIME vem de `/etc/xdg/mimeapps.list`; quem escolher outro programa em *Abrir com* fica com a escolha dele.
 
 ## Compactar e extrair arquivos
 

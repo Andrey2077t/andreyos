@@ -1,0 +1,105 @@
+#!/bin/sh
+# Executar .exe com duplo clique: instala o umu-launcher (o launcher do Proton fora da Steam) e deixa o Proton-GE
+# dentro da ISO, para o primeiro .exe abrir sem instalar nada.
+# Roda depois do hook de jogos (0150: arquitetura i386 + Mesa 32 bits) e do andrey-os-base (0050: traz o andrey-exe,
+# o handler de .exe e o andrey_games.py, que este hook reaproveita para baixar o Proton-GE com SHA-512 conferido).
+#
+# Por que num hook e nao em config/package-lists: o umu-launcher nao esta nos repositorios do Debian; o projeto
+# publica o .deb para o Debian 13 nas releases do GitHub. O Proton-GE tambem so existe no GitHub.
+# Quem ja usa o sistema e nao reinstala a ISO: o andrey-exe cai no Wine puro (aviso) ate ter o umu-run.
+set -e
+export DEBIAN_FRONTEND=noninteractive
+
+UMU_API="https://api.github.com/repos/Open-Wine-Components/umu-launcher/releases/latest"
+UMU_PREFIX="https://github.com/Open-Wine-Components/umu-launcher/releases/download/"
+PROTON_DIR=/usr/share/andrey-os/proton
+
+WORK=$(mktemp -d)
+trap 'rm -rf "$WORK"' EXIT
+chmod 755 "$WORK"   # o apt (usuario _apt) precisa conseguir ler os .deb daqui
+
+apt-get update
+
+# GITHUB_TOKEN (se o ambiente tiver) evita o limite de consultas anonimas da API do GitHub
+curl_get() {   # curl_get URL DESTINO
+    if [ -n "${GITHUB_TOKEN:-}" ]; then
+        curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors --connect-timeout 30 \
+            -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $GITHUB_TOKEN" -o "$2" "$1"
+    else
+        curl -fsSL --retry 5 --retry-delay 5 --retry-all-errors --connect-timeout 30 \
+            -H "Accept: application/vnd.github+json" -o "$2" "$1"
+    fi
+}
+
+echo "==> Consultando a ultima versao do umu-launcher"
+curl_get "$UMU_API" "$WORK/release.json"
+
+fetch_deb() {   # fetch_deb REGEX DESTINO: baixa o arquivo da release que casa com o nome e confere o SHA-256
+    line=$(jq -r --arg re "$1" '[.assets[] | select(.name | test($re))] | first
+                                | if . == null then empty else "\(.browser_download_url) \(.digest // "")" end' "$WORK/release.json")
+    if [ -z "$line" ]; then
+        echo "ERRO: a release do umu-launcher nao tem arquivo '$1'. Arquivos: $(jq -r '[.assets[].name] | join(", ")' "$WORK/release.json")" >&2
+        exit 1
+    fi
+    url=${line%% *}
+    digest=${line#* }
+    case "$url" in
+        "$UMU_PREFIX"*) ;;
+        *) echo "ERRO: endereco inesperado para o umu-launcher: $url" >&2; exit 1 ;;
+    esac
+    curl_get "$url" "$2"
+    case "$digest" in
+        sha256:*)
+            echo "${digest#sha256:}  $2" | sha256sum -c - >/dev/null || { echo "ERRO: SHA-256 de $url nao confere." >&2; exit 1; } ;;
+        *)
+            echo "AVISO: o GitHub nao informou o SHA-256 de $url (seguindo so com HTTPS)." >&2 ;;
+    esac
+    chmod 644 "$2"
+}
+
+echo "==> Baixando o umu-launcher (Debian 13)"
+fetch_deb '^python3-umu-launcher_.*_amd64_debian-13\.deb$' "$WORK/python3-umu-launcher.deb"
+fetch_deb '^umu-launcher_.*_all_debian-13\.deb$'           "$WORK/umu-launcher.deb"
+
+# o apt resolve as dependencias (python3-xlib, pyzstd, xxhash, truststore, urllib3, cbor2, Mesa 32 bits...)
+apt-get install -y --no-install-recommends "$WORK/python3-umu-launcher.deb" "$WORK/umu-launcher.deb"
+
+echo "==> Instalando o Proton-GE na ISO ($PROTON_DIR)"
+mkdir -p "$PROTON_DIR"
+ok=0
+for i in 1 2 3; do
+    if python3 -I -B - <<'PY'
+import sys
+sys.path.insert(0, "/usr/lib/andrey-os")
+import andrey_games as G
+G.install_proton_ge(dest="/usr/share/andrey-os/proton")
+PY
+    then
+        ok=1
+        break
+    fi
+    echo "AVISO: tentativa $i de instalar o Proton-GE falhou; aguardando para tentar de novo..." >&2
+    sleep $((i * 15))
+done
+[ "$ok" = 1 ] || { echo "ERRO: nao consegui instalar o Proton-GE na imagem." >&2; exit 1; }
+chmod -R a+rX "$PROTON_DIR"
+
+# --- travas de build -----------------------------------------------------------------------------
+dpkg-query -W -f='${Status}' python3-umu-launcher 2>/dev/null | grep -q 'install ok installed' || {
+    echo "ERRO: python3-umu-launcher nao ficou instalado." >&2; exit 1; }
+command -v umu-run >/dev/null 2>&1 || { echo "ERRO: comando 'umu-run' ausente depois de instalar o umu-launcher." >&2; exit 1; }
+GE=$(find "$PROTON_DIR" -maxdepth 1 -type d -name 'GE-Proton*' | sort -V | tail -1)
+if [ -z "$GE" ] || [ ! -f "$GE/proton" ] || [ ! -f "$GE/toolmanifest.vdf" ]; then
+    echo "ERRO: Proton-GE incompleto em $PROTON_DIR (faltam 'proton' ou 'toolmanifest.vdf')." >&2
+    exit 1
+fi
+for f in /usr/bin/andrey-exe /usr/lib/andrey-os/andrey_exe.py /usr/share/applications/andrey-exe.desktop \
+         /usr/share/applications/andrey-exe-shortcut.desktop /etc/xdg/mimeapps.list; do
+    [ -e "$f" ] || { echo "ERRO: $f ausente depois de instalar o andrey-os-base." >&2; exit 1; }
+done
+# o gatilho do dpkg (update-desktop-database) registra o handler; sem isso o .exe nao abriria com o andrey-exe
+grep -q 'andrey-exe.desktop' /usr/share/applications/mimeinfo.cache 2>/dev/null || \
+    echo "AVISO: andrey-exe.desktop nao apareceu no mimeinfo.cache (rode update-desktop-database)." >&2
+
+apt-get clean
+exit 0
