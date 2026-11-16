@@ -1,6 +1,6 @@
 {
-  "version": "0.2.8",
-  "previous": "0.2.7",
-  "notes": "Adicionado função de clicar 2x no exe para usá-lo sem necessidade de usar terminais, onde ele detecta se é um instalador, programa ou game e executa para ti clicando 2x no executável",
-  "date": "2026-11-15T13:32:23Z"
+  "version": "0.3.0",
+  "previous": "0.2.8",
+  "notes": "Adicionado Andrey Code, o editor de códigos próprio do Andrey OS",
+  "date": "2026-11-16T12:42:29Z"
 }
