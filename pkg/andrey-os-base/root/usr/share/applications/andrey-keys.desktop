@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Atalhos do Andrey OS
+Comment=Lista os atalhos de teclado estilo Windows (Super+F1)
+Exec=andrey-keys --help
+Icon=input-keyboard
+Terminal=false
+Categories=GTK;Settings;
+Keywords=atalhos;teclado;windows;super;

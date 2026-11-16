@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Drivers e hardware
+GenericName=Instalar drivers
+Comment=Detecta seu hardware e instala drivers de vídeo (NVIDIA, AMD, Intel), firmware e microcódigo
+Exec=andrey-drivers
+Icon=preferences-desktop-peripherals
+Terminal=false
+Categories=System;Settings;HardwareSettings;
+Keywords=drivers;nvidia;amd;intel;placa de vídeo;gpu;firmware;wifi;hardware;

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Atualizar Andrey OS
+Comment=Verifica e instala novas versões do Andrey OS
+Exec=andrey-update
+Icon=system-software-update
+Terminal=false
+Categories=System;Settings;

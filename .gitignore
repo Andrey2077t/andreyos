@@ -1,0 +1,24 @@
+# ISO e saidas do live-build
+*.iso
+andrey-os-amd64.*
+build.log
+out/
+chroot/
+binary/
+cache/
+.build/
+config/binary
+config/bootstrap
+config/chroot
+config/common
+config/source
+config/bootloaders/
+
+# gerados pelo build.sh (a fonte unica fica em ui/ e pkg/)
+config/includes.chroot/usr/share/andrey-os/pkg/
+config/includes.chroot/usr/share/andrey-os/ui-src/
+
+# chaves e caches
+pkg/keyring/*.secret
+__pycache__/
+*.pyc

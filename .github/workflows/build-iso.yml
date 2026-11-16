@@ -1,0 +1,53 @@
+name: Build Andrey OS ISO
+
+# ISO so sai quando voce clica em "Run workflow". As tags/versoes (v0.0.x) sao publicadas pelo
+# workflow "Publicar versao" como ATUALIZACAO (apt), sem gerar ISO nova.
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Liberar espaço em disco
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo docker image prune --all --force
+          df -h /
+
+      - name: Construir a ISO (Debian trixie, privilegiado)
+        run: |
+          docker run --rm --privileged \
+            -v "$PWD":/work -w /work \
+            -e DEBIAN_FRONTEND=noninteractive \
+            -e GITHUB_REPOSITORY="$GITHUB_REPOSITORY" \
+            debian:trixie bash -c "apt-get update && apt-get install -y sudo && bash ./build.sh"
+
+      - name: Mostrar resultado
+        if: always()
+        run: |
+          ls -lh *.iso || true
+          tail -n 50 build.log || true
+
+      - name: Gerar checksum
+        run: sha256sum *.iso > SHA256SUMS
+
+      - name: Publicar ISO como artefato
+        uses: actions/upload-artifact@v4
+        with:
+          name: andrey-os-iso
+          path: |
+            *.iso
+            SHA256SUMS
+          compression-level: 0
+          retention-days: 14
+
+      - name: Publicar log de build (se falhar)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log

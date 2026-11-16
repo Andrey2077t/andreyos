@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Entrada de audio (microfone) sem reiniciar (Andrey OS)
+Exec=andrey-audio-heal --daemon
+Terminal=false
+NoDisplay=true
+X-MATE-Autostart-enabled=true
+X-MATE-Autostart-Delay=3

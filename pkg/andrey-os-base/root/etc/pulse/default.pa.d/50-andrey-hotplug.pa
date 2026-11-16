@@ -1,0 +1,9 @@
+# Andrey OS: dispositivo de audio plugado com o sistema ligado (microfone USB, headset, fone Bluetooth,
+# placa de som) vira o padrao NA HORA, sem precisar reiniciar o PC.
+# O Debian nao carrega esse modulo por padrao (o Ubuntu carrega): o aparelho aparecia no pavucontrol, mas o
+# sistema continuava usando o antigo e so trocava no proximo boot, quando o PulseAudio relê tudo do zero.
+# default.pa ja inclui esta pasta (.nofail .include /etc/pulse/default.pa.d); se o modulo ja estiver
+# carregado, o segundo load-module so falha em silencio.
+.ifexists module-switch-on-connect.so
+load-module module-switch-on-connect
+.endif
