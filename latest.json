@@ -1,6 +1,6 @@
 {
-  "version": "0.4.4",
-  "previous": "0.4.3",
-  "notes": "Corrige Proton-GE e adiciona ajuste de opacidade do dock",
-  "date": "2026-11-17T08:48:21Z"
+  "version": "0.4.5",
+  "previous": "0.4.4",
+  "notes": "Add game compatibility and safe VFIO assistants",
+  "date": "2026-11-17T22:28:28Z"
 }
