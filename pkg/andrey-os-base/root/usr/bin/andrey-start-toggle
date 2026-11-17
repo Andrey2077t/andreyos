@@ -1,0 +1,6 @@
+#!/bin/sh
+# Abre/fecha o Menu Iniciar. Usa o D-Bus direto (rápido; o serviço inicia sozinho se não estiver rodando).
+# Se o D-Bus falhar, cai para o próprio andrey-start.
+gdbus call --session --dest org.andreyos.Start --object-path /org/andreyos/Start \
+     --method org.freedesktop.Application.ActivateAction toggle '[]' '{}' >/dev/null 2>&1 \
+  || exec andrey-start --toggle

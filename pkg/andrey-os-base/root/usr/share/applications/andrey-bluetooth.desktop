@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Reparar Bluetooth
+GenericName=Diagnóstico do Bluetooth
+Comment=Religa o adaptador, recarrega o driver e libera o Bluetooth (útil para adaptador USB genérico)
+Exec=andrey-bluetooth --fix --gui
+Icon=preferences-system-bluetooth
+Terminal=false
+Categories=System;Settings;HardwareSettings;
+Keywords=bluetooth;fone;mouse;adaptador;dongle;rfkill;

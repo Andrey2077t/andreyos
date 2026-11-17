@@ -1,0 +1,153 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""Andrey OS - garante a ENTRADA de audio (microfone) das placas de som analogicas.
+
+Problema: muitas placas-mae (HDA/Realtek) nao avisam o kernel quando o plugue do microfone entra. O PulseAudio
+entao deixa a placa so no perfil de saida ("output:analog-stereo") e o microfone nunca aparece em Preferencias de
+Som (so o "Monitor" do HDMI), nem plugando o fone, ate mexer no perfil na mao.
+
+Solucao: se a placa esta so em saida e existe o perfil duplex equivalente ("saida + entrada"), troca UMA vez por
+placa e deixa a entrada dela como padrao se o padrao atual for so um "Monitor". Depois disso o que a pessoa
+escolher (perfil, porta) e do PulseAudio, que lembra sozinho.
+
+  andrey-audio-heal            verifica uma vez e sai
+  andrey-audio-heal --daemon   verifica ao iniciar e sempre que uma placa nova aparece (USB, Bluetooth...)
+  andrey-audio-heal --dry-run  so mostra o que faria
+"""
+import json
+import os
+import subprocess
+import sys
+import time
+
+STATE = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"),
+                     "andrey-os", "audio-healed")
+
+
+def pactl(*args):
+    try:
+        r = subprocess.run(["pactl", *args], capture_output=True, text=True, timeout=10,
+                           env={**os.environ, "LC_ALL": "C"})
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return r.stdout if r.returncode == 0 else None
+
+
+def list_cards():
+    out = pactl("-f", "json", "list", "cards")
+    try:
+        data = json.loads(out or "[]")
+    except ValueError:
+        return []
+    return data if isinstance(data, list) else []
+
+
+def plan(cards, healed):
+    """Devolve [(nome_da_placa, perfil_duplex)] das placas que precisam trocar. Funcao pura (testavel)."""
+    todo = []
+    for c in cards:
+        name = c.get("name") or ""
+        active = c.get("active_profile") or ""
+        profiles = c.get("profiles")
+        if not name.startswith("alsa_card.") or name in healed or not isinstance(profiles, dict):
+            continue
+        if not active.startswith("output:") or "+input:" in active:
+            continue  # ja tem entrada (ou nao e uma placa de saida analogica/HDMI)
+        best = None
+        for pname, info in profiles.items():
+            if not pname.startswith(active + "+input:") or not isinstance(info, dict):
+                continue
+            if info.get("available") is False or not info.get("sources"):
+                continue
+            if best is None or info.get("priority", 0) > best[1]:
+                best = (pname, info.get("priority", 0))
+        # HDMI nao tem microfone: so analogico/USB ("output:hdmi-..." nunca tem "+input:")
+        if best:
+            todo.append((name, best[0]))
+    return todo
+
+
+def real_sources():
+    out = pactl("list", "short", "sources") or ""
+    names = [ln.split("\t")[1] for ln in out.splitlines() if "\t" in ln]
+    return [n for n in names if not n.endswith(".monitor")]
+
+
+def load_state():
+    try:
+        with open(STATE, encoding="utf-8") as fh:
+            return {ln.strip() for ln in fh if ln.strip()}
+    except OSError:
+        return set()
+
+
+def save_state(names):
+    try:
+        os.makedirs(os.path.dirname(STATE), exist_ok=True)
+        with open(STATE, "w", encoding="utf-8") as fh:
+            fh.write("\n".join(sorted(names)) + "\n")
+    except OSError:
+        pass
+
+
+def heal(dry=False):
+    healed = load_state()
+    todo = plan(list_cards(), healed)
+    for card, profile in todo:
+        print("andrey-audio-heal: %s -> %s" % (card, profile))
+        if dry:
+            continue
+        if pactl("set-card-profile", card, profile) is None:
+            continue
+        healed.add(card)
+        time.sleep(1)
+        # entrada da propria placa como padrao, se o padrao atual for so um "Monitor"
+        suffix = card[len("alsa_card."):]
+        mine = [s for s in real_sources() if s.startswith("alsa_input." + suffix + ".")]
+        cur = (pactl("get-default-source") or "").strip()
+        if mine and (not cur or cur.endswith(".monitor")):
+            pactl("set-default-source", mine[0])
+    if todo and not dry:
+        save_state(healed)
+    return len(todo)
+
+
+def wait_for_pulse(seconds=30):
+    for _ in range(seconds):
+        if pactl("info") is not None:
+            return True
+        time.sleep(1)
+    return False
+
+
+def daemon():
+    if not wait_for_pulse():
+        return 1
+    heal()
+    while True:
+        try:
+            p = subprocess.Popen(["pactl", "subscribe"], stdout=subprocess.PIPE, text=True,
+                                 env={**os.environ, "LC_ALL": "C"})
+        except OSError:
+            return 1
+        for line in p.stdout:
+            if "'new' on card" in line:
+                time.sleep(1.5)  # deixa a placa terminar de subir
+                heal()
+        time.sleep(3)  # PulseAudio reiniciou: reconecta
+        wait_for_pulse()
+        heal()
+
+
+def main(argv):
+    if "--daemon" in argv:
+        return daemon()
+    if not wait_for_pulse(10):
+        print("andrey-audio-heal: PulseAudio nao esta rodando", file=sys.stderr)
+        return 1
+    heal("--dry-run" in argv)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

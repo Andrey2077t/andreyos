@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Verificar drivers do Andrey OS
+Exec=sh -c "sleep 150 && andrey-drivers --check"
+Terminal=false
+NoDisplay=true
+X-MATE-Autostart-enabled=true
