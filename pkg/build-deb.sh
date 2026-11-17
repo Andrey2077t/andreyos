@@ -72,7 +72,7 @@ else
 fi
 
 # permissoes explicitas (zip/Windows perdem o bit de execucao): tudo 644/755, e so os programas sao 755
-EXEC_LIB="apply-update user-sync sync-version session-setup apt-helper drivers-helper bluetooth-helper"
+EXEC_LIB="apply-update user-sync sync-version session-setup apt-helper drivers-helper bluetooth-helper vfio-helper"
 find "$STAGE" -type d -exec chmod 755 {} +
 find "$STAGE" -type f -exec chmod 644 {} +
 chmod 755 "$STAGE"/usr/bin/andrey-*

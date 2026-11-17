@@ -1,0 +1,79 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""Assistente de compatibilidade Proton/Wine para jogos instalados no Steam."""
+import os
+import subprocess
+import sys
+
+sys.path.insert(0, "/usr/lib/andrey-os")
+import andrey_game_compat as C  # noqa: E402
+
+TITLE = "Compatibilidade de jogos — Andrey OS"
+
+
+def zenity(*args):
+    try:
+        r = subprocess.run(["zenity", "--no-markup", "--title=" + TITLE, *args], capture_output=True, text=True)
+        return r.returncode, r.stdout.strip()
+    except OSError:
+        return 1, ""
+
+
+def _show(text):
+    try:
+        subprocess.run(["zenity", "--text-info", "--title=" + TITLE, "--width=700", "--height=500",
+                        "--font=monospace"], input=text, text=True)
+    except OSError:
+        print(text)
+
+
+def gui():
+    while True:
+        detected = C.detect_games()
+        title = "Detectados: " + (", ".join(g["name"] for g in detected) if detected else "nenhum dos títulos conhecidos")
+        rc, action = zenity("--list", "--width=620", "--height=360", "--column=ação", "--column=descrição",
+                            "--hide-header", "--text=" + title,
+                            "scan", "Detectar jogos nas bibliotecas Steam",
+                            "recommend", "Ver compatibilidade, Proton recomendado e correções seguras",
+                            "options", "Gerar opção de inicialização com perfil de desempenho")
+        if rc:
+            return 0
+        if action == "scan":
+            body = "Jogos detectados nas bibliotecas Steam:\n\n"
+            body += "\n\n".join(C.describe(g["id"]) for g in detected) if detected else \
+                    "Nenhum jogo conhecido foi encontrado. Você ainda pode escolher um jogo manualmente."
+            _show(body)
+            continue
+        games = [(slug, game) for slug, game in C.GAMES.items()]
+        args = ["--list", "--width=720", "--height=360", "--column=id", "--column=jogo", "--column=status",
+                "--hide-column=1", "--print-column=1", "--text=Selecione um jogo"]
+        for slug, game in games:
+            args.extend((slug, game["name"], game["status"]))
+        rc, slug = zenity(*args)
+        if rc or slug not in C.GAMES:
+            continue
+        if action == "recommend":
+            _show(C.describe(slug))
+            continue
+        rc, profile = zenity("--list", "--width=560", "--height=240", "--column=id", "--column=perfil",
+                             "--hide-column=1", "--print-column=1", "--text=O perfil de desempenho é temporário e restaura o sistema ao fechar o jogo.",
+                             "balanced", "Equilibrado — mantém efeitos e energia atuais",
+                             "performance", "Desempenho — reduz composição e usa perfil performance se disponível")
+        if rc or profile not in ("balanced", "performance"):
+            continue
+        option = C.launch_options(slug, profile)
+        rc, _ = zenity("--entry", "--width=760", "--text=Copie esta opção para Steam > Propriedades > Opções de inicialização:",
+                       "--entry-text=" + option)
+        if rc == 0:
+            _show(C.describe(slug) + "\n\nOpção escolhida:\n" + option +
+                  "\n\nCole a opção nas propriedades do jogo no Steam. A escolha de Proton fica em Compatibilidade.")
+
+
+def main(argv):
+    if argv:
+        return C.main(argv)
+    return gui()
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

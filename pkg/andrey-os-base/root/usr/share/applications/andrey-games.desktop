@@ -2,9 +2,9 @@
 Type=Application
 Name=Jogos (Steam, Proton e Wine)
 GenericName=Preparar o sistema para jogar
-Comment=Verifica e repara Steam, Wine e bibliotecas de 32 bits; instala o Proton-GE
+Comment=Gerencia Proton, compatibilidade de jogos e assistente de VM Windows
 Exec=andrey-games
 Icon=applications-games
 Terminal=false
 Categories=Game;System;Settings;
-Keywords=steam;proton;wine;jogos;games;vulkan;dxvk;
+Keywords=steam;proton;wine;jogos;games;vulkan;dxvk;vfio;looking glass;anticheat;

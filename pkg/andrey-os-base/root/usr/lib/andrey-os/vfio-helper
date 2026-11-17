@@ -1,0 +1,29 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""Ações administrativas do AntiCheat Mode; sempre chamado pelo pkexec."""
+import sys
+
+import andrey_anticheat as A
+
+
+def main(argv):
+    try:
+        if argv and argv[0] == "apply" and len(argv) == 3 and argv[2] == "--confirmed-recovery":
+            print(A.apply_vfio(argv[1], recovery_confirmed=True))
+        elif argv == ["revert"]:
+            print(A.revert_vfio())
+        elif argv == ["bind"]:
+            print(A.bind_vfio_devices())
+        elif argv == ["unbind"]:
+            print(A.unbind_vfio_devices())
+        else:
+            print("Uso administrativo: vfio-helper apply PCI --confirmed-recovery | revert | bind | unbind", file=sys.stderr)
+            return 2
+    except Exception as exc:  # erros de hardware/configuração devem voltar como mensagem legível
+        print("vfio-helper: " + str(exc), file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

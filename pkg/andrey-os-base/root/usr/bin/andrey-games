@@ -71,6 +71,8 @@ def gui():
                             "--hide-header", "--text=" + status,
                             "reparar", "Instalar/reparar Steam, Wine e bibliotecas de 32 bits",
                             "proton", "Instalar o Proton-GE (versão da comunidade, mais atualizada)",
+                            "compat", "Compatibilidade Proton: detectar jogos e criar perfis",
+                            "anticheat", "Assistente VFIO + Looking Glass para uma VM Windows",
                             "relatorio", "Ver o relatório completo")
         if rc != 0:
             return 0
@@ -79,6 +81,12 @@ def gui():
             subprocess.call(repair_cmd())
         elif choice == "proton":
             gui_proton()
+        elif choice == "compat":
+            subprocess.Popen(["andrey-game-compat"], start_new_session=True)
+            return 0
+        elif choice == "anticheat":
+            subprocess.Popen(["andrey-anticheat-mode"], start_new_session=True)
+            return 0
         elif choice == "relatorio":
             _show(G.render_report(res))
 

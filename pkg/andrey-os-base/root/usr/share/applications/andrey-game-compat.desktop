@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Compatibilidade de Jogos
+GenericName=Compatibilidade Proton e Wine
+Comment=Detecte jogos Steam, veja recomendações de Proton e configure perfis temporários
+Exec=andrey-game-compat
+Icon=applications-games
+Terminal=false
+Categories=Game;Settings;
+Keywords=steam;proton;wine;compatibilidade;MTA;FiveM;Fortnite;EA FC;
+StartupNotify=true
