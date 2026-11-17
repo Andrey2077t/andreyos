@@ -1,6 +1,6 @@
 {
-  "version": "0.4.0",
-  "previous": "0.3.0",
-  "notes": "Dock transparente e editável; Andrey Code com multi-cursor, minimapa, depurador Python e terminal pty",
-  "date": "2026-11-17T05:23:37Z"
+  "version": "0.4.1",
+  "previous": "0.4.0",
+  "notes": "correções de erros",
+  "date": "2026-11-17T05:59:55Z"
 }

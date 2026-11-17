@@ -1,24 +1,4 @@
 Package: andrey-os-base
-Version: 0.2.1
-Architecture: amd64
-Maintainer: Andrey OS <andrey-os@localhost>
-Installed-Size: 1464
-Depends: mate-panel, mate-applets, libglib2.0-bin, curl, jq, zenity, pkexec, python3, python3-gi, gir1.2-gtk-3.0, librsvg2-common, chromium | chromium-browser | google-chrome-stable, wmctrl, bluez, blueman, engrampa, zip, unzip, 7zip | p7zip-full, libqt6widgets6t64 | libqt6widgets6, libqt6svg6t64 | libqt6svg6, libqt6network6t64 | libqt6network6, qt6-qpa-plugins, libxcb-cursor0
-Recommends: plymouth, pulseaudio-module-bluetooth, bluez-obexd, unrar | unrar-free, xz-utils, bzip2, zstd
-Filename: pool/andrey-os-base_0.2.1_amd64.deb
-Size: 420792
-MD5sum: c7d5f36973d7c7907350e36513584db7
-SHA1: ce3dcc0cca275e95005c1e88c8e4b9d5fdcf6be5
-SHA256: 999614c8db9e5ef992fae6fda43da4b07410b8c3adc71a814101b0d630e71e25
-Section: misc
-Priority: optional
-Description: Identidade visual e atualizador do Andrey OS
- Paineis (barra superior e dock), icones vermelhos, wallpaper, tema Plymouth,
- branding do instalador, conky, a janela "Desinstalar Programas" (Qt6), o Display de volume (Qt6) e o atualizador
- "andrey-update", que busca novas versoes no repositorio apt do projeto (GitHub Pages). Tambem traz o
- suporte a compactar/extrair arquivos (Engrampa) e o aplicativo Andrey Music.
-
-Package: andrey-os-base
 Version: 0.2.2
 Architecture: amd64
 Maintainer: Andrey OS <andrey-os@localhost>
@@ -195,6 +175,28 @@ Size: 730738
 MD5sum: 63c668024c7f5c345c372b22a3537231
 SHA1: eb1b41f6e49cc6171b8262ff9d9ed4937690bcca
 SHA256: f109d87456f92c467f1342a43040a7d64852d32bb99cabbfa01d4671ed69cfa3
+Section: misc
+Priority: optional
+Description: Identidade visual e atualizador do Andrey OS
+ Paineis (barra superior e dock), icones vermelhos, wallpaper, tema Plymouth,
+ branding do instalador, conky, a janela "Desinstalar Programas" (Qt6), o Display de volume (Qt6) e o atualizador
+ "andrey-update", que busca novas versoes no repositorio apt do projeto (GitHub Pages). Tambem traz o
+ suporte a compactar/extrair arquivos (Engrampa), o editor de codigo Andrey Code (Qt6), o aplicativo Andrey Music e o "Executar com Proton" (andrey-exe),
+ que abre .exe com duplo clique pelo umu-launcher + Proton-GE.
+
+Package: andrey-os-base
+Version: 0.4.1
+Architecture: amd64
+Maintainer: Andrey OS <andrey-os@localhost>
+Installed-Size: 2468
+Depends: mate-panel, mate-applets, libglib2.0-bin, pulseaudio-utils, desktop-file-utils, shared-mime-info, libgtk-3-bin, udisks2, gvfs, gvfs-backends, gvfs-fuse, curl, jq, zenity, pkexec, python3, python3-gi, gir1.2-gtk-3.0, gir1.2-wnck-3.0, librsvg2-common, chromium | chromium-browser | google-chrome-stable, wmctrl, bluez, blueman, engrampa, zip, unzip, 7zip | p7zip-full, libqt6widgets6t64 | libqt6widgets6, libqt6svg6t64 | libqt6svg6, libqt6network6t64 | libqt6network6, qt6-qpa-plugins, libxcb-cursor0
+Recommends: fonts-dejavu-core, python3-pyflakes, git, plymouth, pulseaudio-module-bluetooth, bluez-obexd, unrar | unrar-free, xz-utils, bzip2, zstd, icoutils, libnotify-bin
+Suggests: umu-launcher
+Filename: pool/andrey-os-base_0.4.1_amd64.deb
+Size: 730842
+MD5sum: 6c7a62659f419856ca88fd0fa088d09f
+SHA1: 223286672e82356c51feb4a876f6eca1c890f91c
+SHA256: b7b93996020d9941435fd060514d58aa51ce2ba6d0a4a2327221ce9c5b4929f8
 Section: misc
 Priority: optional
 Description: Identidade visual e atualizador do Andrey OS
