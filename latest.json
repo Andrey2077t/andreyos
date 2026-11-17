@@ -1,6 +1,6 @@
 {
-  "version": "0.3.0",
-  "previous": "0.2.8",
-  "notes": "Adicionado Andrey Code, o editor de códigos próprio do Andrey OS",
-  "date": "2026-11-16T12:42:29Z"
+  "version": "0.4.0",
+  "previous": "0.3.0",
+  "notes": "Dock transparente e editável; Andrey Code com multi-cursor, minimapa, depurador Python e terminal pty",
+  "date": "2026-11-17T05:23:37Z"
 }
