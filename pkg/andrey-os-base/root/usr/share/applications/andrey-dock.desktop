@@ -2,10 +2,10 @@
 Type=Application
 Name=Editar dock
 GenericName=Personalizar o dock
-Comment=Adicione, remova e reordene os itens do dock e escolha o fundo transparente
+Comment=Edite os itens do dock e ajuste a opacidade do fundo
 Exec=andrey-dock
 Icon=andrey-grid
 Terminal=false
 Categories=Settings;DesktopSettings;
-Keywords=dock;barra;painel;lançador;atalhos;transparente;
+Keywords=dock;barra;painel;lançador;atalhos;transparente;opacidade;
 StartupNotify=true

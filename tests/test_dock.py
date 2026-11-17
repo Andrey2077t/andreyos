@@ -141,6 +141,27 @@ class DockPrograma(unittest.TestCase):
         self.assertEqual(group("org/mate/panel/toplevels/bottom/background"),
                          {"type": "none", "opacity": "0", "color": "#000000"})
 
+    def test_opacidade_do_fundo(self):
+        bg = os.path.join(self.tmp, "glib-2.0", "settings", "keyfile")
+        def group():
+            values, active = {}, False
+            for line in read(bg).splitlines():
+                if line.startswith("[") and line.endswith("]"):
+                    active = line == "[org/mate/panel/toplevels/bottom/background]"
+                elif active and "=" in line:
+                    key, value = line.split("=", 1)
+                    values[key] = value.strip().strip("'")
+            return values
+
+        self.run_dock("--opacity", "35")
+        values = group()
+        self.assertEqual(values["type"], "color")
+        self.assertEqual(values["color"], "#080203")
+        self.assertAlmostEqual(int(values["opacity"]) / 65535, 0.35, delta=0.01)
+        self.run_dock("--opacity", "0")
+        self.assertEqual(group(), {"type": "none", "opacity": "0", "color": "#000000"})
+        self.assertIn("Opacidade do fundo", read(DOCK))
+
     def test_posicoes_seguem_a_ordem_sem_sobrepor(self):
         self.run_dock("--reset")
         txt = read(os.path.join(self.tmp, "glib-2.0", "settings", "keyfile"))

@@ -7,6 +7,7 @@
   andrey-dock --remove APP.desktop  tira um aplicativo do dock
   andrey-dock --has APP.desktop     codigo 0 se o aplicativo ja esta no dock
   andrey-dock --transparent on|off  fundo transparente (padrao: on)
+  andrey-dock --opacity N     opacidade do fundo (0 a 100; 0 transparente)
   andrey-dock --size N         tamanho dos icones (32 a 96)
   andrey-dock --reset          volta ao dock padrao
   andrey-dock --apply-style    aplica o fundo padrao dos paineis (barra superior escura, dock transparente)
@@ -215,6 +216,24 @@ def is_transparent():
     return b.get_string("type") == "none" or (b.get_string("type") == "color" and b.get_int("opacity") == 0)
 
 
+def background_opacity():
+    """Opacidade atual do fundo, como porcentagem inteira de 0 a 100."""
+    b = _bg(DOCK)
+    if b.get_string("type") == "none":
+        return 0
+    return max(0, min(100, round(b.get_int("opacity") * 100 / 65535)))
+
+
+def set_background_opacity(percent):
+    """Define transparência (0) ou o fundo escuro com a opacidade escolhida (1–100)."""
+    percent = max(0, min(100, int(percent)))
+    b = _bg(DOCK)
+    b.set_string("color", DARK[0] if percent else "#000000")
+    b.set_int("opacity", round(percent * 65535 / 100))
+    b.set_string("type", "none" if percent == 0 else "color")
+    _sync()
+
+
 def apply_style():
     _set_bg(TOP, *DARK)
     b = _bg(DOCK)
@@ -405,11 +424,14 @@ def gui():
 
     opts = Gtk.Box(spacing=10)
     root.pack_start(opts, False, False, 0)
-    sw = Gtk.Switch()
-    sw.set_active(is_transparent())
-    sw.set_valign(Gtk.Align.CENTER)
-    opts.pack_start(Gtk.Label(label="Fundo transparente", xalign=0), False, False, 0)
-    opts.pack_start(sw, False, False, 0)
+    opts.pack_start(Gtk.Label(label="Opacidade do fundo", xalign=0), False, False, 0)
+    opacity = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
+    opacity.set_value(background_opacity())
+    opacity.set_digits(0)
+    opacity.set_draw_value(True)
+    opacity.set_hexpand(True)
+    opacity.set_tooltip_text("0% deixa o dock transparente; 100% usa fundo opaco")
+    opts.pack_start(opacity, True, True, 0)
     opts.pack_start(Gtk.Label(label="   Tamanho dos ícones", xalign=0), False, False, 0)
     spin = Gtk.SpinButton.new_with_range(32, 96, 4)
     spin.set_value(icon_size())
@@ -427,7 +449,7 @@ def gui():
 
     def do_apply():
         sync_from_store()
-        set_transparent(sw.get_active())
+        set_background_opacity(opacity.get_value())
         if int(spin.get_value()) != icon_size():
             set_size(int(spin.get_value()))
         save_items(state["items"], 0.4)
@@ -472,6 +494,8 @@ def main(argv):
             return 0 if has(argv[1]) else 1
         elif a == "--transparent" and len(argv) > 1 and argv[1] in ("on", "off"):
             set_transparent(argv[1] == "on")
+        elif a == "--opacity" and len(argv) > 1 and argv[1].isdigit():
+            set_background_opacity(argv[1])
         elif a == "--size" and len(argv) > 1:
             set_size(argv[1])
             save_items(list_items())

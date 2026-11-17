@@ -83,6 +83,20 @@ class ExtractTests(unittest.TestCase):
         g.safe_extract(t, out, TAG)
         self.assertTrue(os.path.isfile(os.path.join(out, TAG, "compatibilitytool.vdf")))
 
+    def test_extrai_diretorio_raiz_com_sufixo_x86_64(self):
+        root = TAG + "-x86_64"
+        t = os.path.join(self.tmp, root + ".tar.gz")
+        make_tar(t, [root + "/compatibilitytool.vdf", root + "/files/x"])
+        staged = g._extract_and_validate(t, self.tmp, TAG)
+        self.assertTrue(staged.endswith(os.path.join("x", root)))
+        self.assertTrue(os.path.isfile(os.path.join(staged, "compatibilitytool.vdf")))
+
+    def test_extrator_recusa_nome_de_pacote_inesperado(self):
+        t = os.path.join(self.tmp, "outro.tar.gz")
+        make_tar(t, [TAG + "/compatibilitytool.vdf"])
+        with self.assertRaises(g.ProtonInstallError):
+            g._extract_and_validate(t, self.tmp, TAG)
+
     def test_recusa_fuga_de_caminho_e_pasta_errada(self):
         for names in (["../fora"], [TAG + "/../../fora"], ["/etc/passwd"], ["outra/x"], [TAG + "/ok", "intruso"]):
             t = os.path.join(self.tmp, "b.tar.gz")

@@ -232,11 +232,19 @@ def safe_extract(tar_path: str, dest: str, expected_top: str) -> None:
 
 
 def _extract_and_validate(tar_path: str, work: str, tag: str) -> str:
-    """Extrai em uma pasta de preparo dentro de `work` e devolve o caminho de <preparo>/<tag> já validado."""
+    """Extrai o formato oficial da release e devolve a pasta Proton validada."""
+    name = os.path.basename(tar_path)
+    if name == tag + ".tar.gz":
+        archive_top = tag
+    elif name == tag + "-x86_64.tar.gz":
+        # Releases recentes incluem a arquitetura também no diretório raiz.
+        archive_top = tag + "-x86_64"
+    else:
+        raise ProtonInstallError("Nome inesperado para o pacote Proton-GE: " + name)
     stage = os.path.join(work, "x")
     os.makedirs(stage)
-    safe_extract(tar_path, stage, tag)
-    staged_tag = os.path.join(stage, tag)
+    safe_extract(tar_path, stage, archive_top)
+    staged_tag = os.path.join(stage, archive_top)
     if not os.path.isfile(os.path.join(staged_tag, "compatibilitytool.vdf")):
         raise ProtonInstallError("Pacote sem compatibilitytool.vdf: não parece um Proton válido.")
     return staged_tag
