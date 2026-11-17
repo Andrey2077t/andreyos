@@ -366,7 +366,7 @@ class IntegrationFilesTests(unittest.TestCase):
         txt = self.read("usr", "lib", "andrey-os", "session-setup")
         for t in self.TYPES:
             self.assertIn(t, txt)
-        self.assertIn("LEVEL=9", txt)
+        self.assertIn("LEVEL=10", txt)
 
 
 if __name__ == "__main__":

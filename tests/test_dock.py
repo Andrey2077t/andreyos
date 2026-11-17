@@ -117,13 +117,29 @@ class DockPrograma(unittest.TestCase):
     def test_fundo_transparente(self):
         self.run_dock("--apply-style")
         bg = os.path.join(self.tmp, "glib-2.0", "settings", "keyfile")
+        def group(section):
+            values, active = {}, False
+            for line in read(bg).splitlines():
+                if line.startswith("[") and line.endswith("]"):
+                    if active:
+                        break
+                    active = line == "[" + section + "]"
+                elif active and "=" in line:
+                    key, value = line.split("=", 1)
+                    values[key] = value.strip().strip("'")
+            return values
+
+        bottom = group("org/mate/panel/toplevels/bottom/background")
+        self.assertEqual(bottom, {"type": "none", "opacity": "0", "color": "#000000"})
         txt = read(bg)
-        self.assertIn("[org/mate/panel/toplevels/bottom/background]\ncolor='#000000'\nopacity=0\ntype='none'", txt)
         self.assertIn("[org/mate/panel/toplevels/top/background]\ncolor='#080203'\nopacity=57671", txt)
         self.run_dock("--transparent", "off")
-        self.assertNotIn("bottom/background]\ncolor='#000000'\nopacity=0", read(bg))
+        bottom = group("org/mate/panel/toplevels/bottom/background")
+        self.assertEqual(bottom["type"], "color")
+        self.assertGreater(int(bottom["opacity"]), 0)
         self.run_dock("--transparent", "on")
-        self.assertIn("bottom/background]\ncolor='#000000'\nopacity=0\ntype='none'", read(bg))
+        self.assertEqual(group("org/mate/panel/toplevels/bottom/background"),
+                         {"type": "none", "opacity": "0", "color": "#000000"})
 
     def test_posicoes_seguem_a_ordem_sem_sobrepor(self):
         self.run_dock("--reset")
