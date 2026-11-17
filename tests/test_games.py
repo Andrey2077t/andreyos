@@ -37,6 +37,14 @@ class ReleaseTests(unittest.TestCase):
     def test_release_valida(self):
         self.assertEqual(g.parse_release(release())[0:2], (TAG, TAG + ".tar.gz"))
 
+    def test_release_com_sufixo_de_arquitetura(self):
+        names = [TAG + "-aarch64.tar.gz", TAG + "-aarch64.sha512sum", TAG + "-x86_64.tar.gz", TAG + "-x86_64.sha512sum"]
+        r = release(assets=[{"name": n, "browser_download_url": URL + n} for n in names])
+        self.assertEqual(g.parse_release(r)[0:2], (TAG, TAG + "-x86_64.tar.gz"))
+        # so aarch64: nao serve para esta ISO
+        r = release(assets=[{"name": n, "browser_download_url": URL + n} for n in names[:2]])
+        self.assertIsNone(g.parse_release(r))
+
     def test_recusa_tag_estranha(self):
         for t in ("../x", "GE-Proton1; rm -rf ~", "Proton-9", "", None, 5):
             self.assertIsNone(g.parse_release(release(tag_name=t)), repr(t))

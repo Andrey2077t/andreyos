@@ -57,9 +57,14 @@ def parse_release(data):
         return None
     if not isinstance(tag, str) or not TAG_RE.match(tag):
         return None
-    tar = tag + ".tar.gz"
-    sha = tag + ".sha512sum"
-    if tar not in assets or sha not in assets:
+    # Desde o GE-Proton11 os arquivos levam o sufixo da arquitetura (GE-Proton11-6-x86_64.tar.gz);
+    # as versoes antigas nao tinham. Prefere o x86_64 e cai no nome antigo.
+    for suffix in ("-x86_64", ""):
+        tar = tag + suffix + ".tar.gz"
+        sha = tag + suffix + ".sha512sum"
+        if tar in assets and sha in assets:
+            break
+    else:
         return None
     for u in (assets[tar], assets[sha]):
         if not isinstance(u, str) or not u.startswith(PROTON_GE_PREFIX):
