@@ -26,6 +26,7 @@ from typing import Any, Callable, List, NamedTuple, Optional, Tuple
 # --------------------------------------------------------------------------- constantes
 PROTON_GE_API = "https://api.github.com/repos/GloriousEggroll/proton-ge-custom/releases/latest"
 PROTON_GE_PREFIX = "https://github.com/GloriousEggroll/proton-ge-custom/releases/download/"
+PROTON_GE_LATEST = "https://github.com/GloriousEggroll/proton-ge-custom/releases/latest"
 TAG_RE = re.compile(r"^GE-Proton[0-9][0-9A-Za-z._-]{0,40}$")
 SHA512_RE = re.compile(r"[0-9a-fA-F]{128}")
 MIN_MAP_COUNT = 1048576
@@ -134,11 +135,42 @@ def _fetch(url: str, timeout: int = API_TIMEOUT):
 
 
 def _latest_release(fetch: Fetcher) -> Tuple[str, str, str, str]:
-    with fetch(PROTON_GE_API, timeout=API_TIMEOUT) as r:
-        rel = parse_release(json.load(r))
-    if not rel:
-        raise ProtonInstallError("Resposta inesperada do GitHub (versão do Proton-GE não reconhecida).")
-    return rel
+    api_error = None
+    try:
+        with fetch(PROTON_GE_API, timeout=API_TIMEOUT) as r:
+            rel = parse_release(json.load(r))
+        if rel:
+            return rel
+        api_error = "resposta inesperada da API"
+    except Exception as exc:
+        api_error = str(exc)
+
+    # A API REST pode responder 403 quando a cota anonima do IP do builder acaba.
+    # A pagina /latest redireciona para a tag. Montamos os nomes permitidos e exigimos
+    # que o checksum oficial da release confirme o tar antes de iniciar o download.
+    try:
+        with fetch(PROTON_GE_LATEST, timeout=API_TIMEOUT) as r:
+            final_url = r.geturl()
+    except Exception as exc:
+        raise ProtonInstallError("A API do GitHub falhou (%s) e nao consegui abrir a pagina de releases: %s" %
+                                 (api_error, exc)) from exc
+    match = re.search(r"/releases/tag/([^/?#]+)$", final_url)
+    tag = match.group(1) if match else ""
+    if not TAG_RE.fullmatch(tag):
+        raise ProtonInstallError("A API do GitHub falhou (%s) e a pagina nao revelou uma tag valida do Proton-GE." % api_error)
+
+    for suffix in ("-x86_64", ""):
+        tar_name = tag + suffix + ".tar.gz"
+        sha_url = PROTON_GE_PREFIX + tag + "/" + tag + suffix + ".sha512sum"
+        try:
+            with fetch(sha_url, timeout=API_TIMEOUT) as r:
+                checksum = parse_checksum(r.read(CHECKSUM_MAX_BYTES).decode("utf-8", "replace"), tar_name)
+        except Exception:
+            checksum = None
+        if checksum:
+            return tag, tar_name, PROTON_GE_PREFIX + tag + "/" + tar_name, sha_url
+    raise ProtonInstallError("A API do GitHub falhou (%s) e nao achei checksum SHA-512 valido na release %s." %
+                             (api_error, tag))
 
 
 def _expected_sha512(fetch: Fetcher, sha_url: str, tar_name: str, tag: str) -> str:

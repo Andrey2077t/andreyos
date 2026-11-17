@@ -2,7 +2,7 @@
 # Roda a cada login (pelo user-sync). Cada passo tem um "nivel"; so roda o que ainda nao foi aplicado
 # para esta pessoa, entao funciona tanto para usuarios novos quanto para quem ja usava o sistema.
 # Nao sobrescreve o que a pessoa personalizou depois.
-LEVEL=9
+LEVEL=10
 # a cada login (barato): religa a tecla Super se estiver sem modificador e remove atalho "solto" que
 # engole teclas como E, L, R... (o teste completo, que olha o X, roda depois: andrey-keyheal.desktop)
 andrey-keys --sanitize 2>/dev/null || true
@@ -17,7 +17,8 @@ DONE=$(cat "$F" 2>/dev/null || echo 0)
 #     nivel 7: --repair remove esses atalhos globais; Ctrl+1..9 agora e do servico "andrey-tabs --daemon",
 #     que so captura as teclas depois de clicar na barra superior. Nao pisa no que foi personalizado;
 #     nivel 8: .exe/.msi/.bat abrem com o andrey-exe, so para quem ainda tinha o Wine puro como padrao;
-#     nivel 9: fundo dos paineis pelo mate-panel: barra superior escura e dock transparente)
+#     nivel 9: fundo dos paineis pelo mate-panel: barra superior escura e dock transparente;
+#     nivel 10: tipo de fundo "none" no dock, que garante transparencia em temas MATE que ignoram opacity=0)
 andrey-keys --repair || true
 
 # 2) "Novo documento" no botao direito do Caja (pasta Modelos)
@@ -55,8 +56,9 @@ if [ ! -e "$D/panel-layout" ]; then
     fi
 fi
 
-# 5) fundo dos paineis: dock transparente, barra superior escura translucida. Uma vez so: depois a pessoa muda no
-#    "Editar dock" (andrey-dock) ou nas propriedades do painel, e isto nao volta a pisar nessa escolha.
+# 5) fundo dos paineis: dock com fundo desligado (transparencia real), barra superior escura translucida.
+#    Esta migracao de nivel unico aplica a cor pedida pelo projeto uma vez; depois a pessoa pode mudar no
+#    "Editar dock" (andrey-dock) ou nas propriedades do painel.
 andrey-dock --apply-style 2>/dev/null || true
 
 echo "$LEVEL" > "$F"

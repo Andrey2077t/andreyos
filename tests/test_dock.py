@@ -40,7 +40,7 @@ class DockEstatico(unittest.TestCase):
 
     def test_session_setup_aplica_o_estilo_uma_vez(self):
         s = read(ROOT, "usr/lib/andrey-os/session-setup")
-        self.assertIn("LEVEL=9", s)
+        self.assertIn("LEVEL=10", s)
         self.assertIn("andrey-dock --apply-style", s)
         # depois do corte "ja aplicado", senao rodaria a cada login e pisaria na escolha da pessoa
         self.assertGreater(s.index("andrey-dock --apply-style"), s.index('-ge "$LEVEL"'))
@@ -118,12 +118,12 @@ class DockPrograma(unittest.TestCase):
         self.run_dock("--apply-style")
         bg = os.path.join(self.tmp, "glib-2.0", "settings", "keyfile")
         txt = read(bg)
-        self.assertIn("[org/mate/panel/toplevels/bottom/background]\ncolor='#000000'\nopacity=0\ntype='color'", txt)
+        self.assertIn("[org/mate/panel/toplevels/bottom/background]\ncolor='#000000'\nopacity=0\ntype='none'", txt)
         self.assertIn("[org/mate/panel/toplevels/top/background]\ncolor='#080203'\nopacity=57671", txt)
         self.run_dock("--transparent", "off")
         self.assertNotIn("bottom/background]\ncolor='#000000'\nopacity=0", read(bg))
         self.run_dock("--transparent", "on")
-        self.assertIn("bottom/background]\ncolor='#000000'\nopacity=0", read(bg))
+        self.assertIn("bottom/background]\ncolor='#000000'\nopacity=0\ntype='none'", read(bg))
 
     def test_posicoes_seguem_a_ordem_sem_sobrepor(self):
         self.run_dock("--reset")

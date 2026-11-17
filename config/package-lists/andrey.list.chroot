@@ -139,6 +139,7 @@ librsvg2-common
 # libxtst6: andrey-superkey (XRecord) e andrey-clipboard (colar com XTest)
 dconf-cli
 mate-utils
+xinput
 xdg-user-dirs
 xdg-utils
 psmisc

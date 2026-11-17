@@ -26,7 +26,6 @@ S_GEN, S_OBJ, S_TOP, S_BG = ("org.mate.panel", "org.mate.panel.object",
                              "org.mate.panel.toplevel", "org.mate.panel.toplevel.background")
 SEP_W = 16                                    # largura do separador no layout padrao (os demais itens tem "size")
 DARK = ("#080203", 57671)                     # barra superior: o mesmo escuro translucido (88%) de sempre
-CLEAR = ("#000000", 0)                        # dock: transparente
 DEFAULT_ITEMS = [
     {"id": "bottom-grid", "type": "launcher", "location": "andrey-start.desktop"},
     {"id": "bottom-browser", "type": "launcher", "location": "firefox-esr.desktop"},
@@ -199,18 +198,29 @@ def _set_bg(toplevel, color, opacity):
 
 
 def set_transparent(on):
-    _set_bg(DOCK, *(CLEAR if on else DARK))
+    if on:
+        # O tipo "none" desliga o desenho do fundo do painel; opacity=0 em
+        # type=color depende do tema/compositor e em alguns MATE ainda aparece opaco.
+        b = _bg(DOCK)
+        b.set_string("type", "none")
+        b.set_int("opacity", 0)
+        b.set_string("color", "#000000")
+    else:
+        _set_bg(DOCK, *DARK)
     _sync()
 
 
 def is_transparent():
     b = _bg(DOCK)
-    return b.get_string("type") == "color" and b.get_int("opacity") == 0
+    return b.get_string("type") == "none" or (b.get_string("type") == "color" and b.get_int("opacity") == 0)
 
 
 def apply_style():
     _set_bg(TOP, *DARK)
-    _set_bg(DOCK, *CLEAR)
+    b = _bg(DOCK)
+    b.set_string("type", "none")
+    b.set_int("opacity", 0)
+    b.set_string("color", "#000000")
     _sync()
 
 

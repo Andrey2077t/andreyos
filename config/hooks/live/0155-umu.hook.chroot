@@ -13,6 +13,11 @@ export DEBIAN_FRONTEND=noninteractive
 UMU_API="https://api.github.com/repos/Open-Wine-Components/umu-launcher/releases/latest"
 UMU_PREFIX="https://github.com/Open-Wine-Components/umu-launcher/releases/download/"
 PROTON_DIR=/usr/share/andrey-os/proton
+# Fallback fixo para quando a cota anonima da API do GitHub retorna 403.
+# Versao e hashes conferidos na pagina oficial da release; atualize juntos ao trocar a versao.
+UMU_FALLBACK_TAG=1.4.4
+UMU_FALLBACK_PYTHON_SHA256=602c4ac7210a54b835530f927b10c2781e51e294b1cf46448006e48fae66f232
+UMU_FALLBACK_LAUNCHER_SHA256=11a22c8125787e861355bf93953783f61420840fae6e9c0fd43c28dc01e0a947
 
 WORK=$(mktemp -d)
 trap 'rm -rf "$WORK"' EXIT
@@ -31,8 +36,30 @@ curl_get() {   # curl_get URL DESTINO
     fi
 }
 
+fetch_release() {
+    # Evita repetir a chamada para sempre quando a resposta e 403 (cota de API), mas ainda tenta uma vez.
+    if [ -n "${GITHUB_TOKEN:-}" ]; then
+        if curl -fsSL --retry 1 --retry-delay 3 --connect-timeout 30 \
+            -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $GITHUB_TOKEN" \
+            -o "$WORK/release.json" "$UMU_API"; then
+            return 0
+        fi
+    elif curl -fsSL --retry 1 --retry-delay 3 --connect-timeout 30 \
+        -H "Accept: application/vnd.github+json" -o "$WORK/release.json" "$UMU_API"; then
+        return 0
+    fi
+
+    echo "AVISO: API do GitHub indisponivel (por exemplo, HTTP 403); usando UMU $UMU_FALLBACK_TAG com SHA-256 fixo." >&2
+    jq -n --arg tag "$UMU_FALLBACK_TAG" --arg prefix "$UMU_PREFIX" \
+          --arg pysha "$UMU_FALLBACK_PYTHON_SHA256" --arg umusha "$UMU_FALLBACK_LAUNCHER_SHA256" \
+          '{assets:[
+            {name:("python3-umu-launcher_"+$tag+"-1_amd64_debian-13.deb"),browser_download_url:($prefix+$tag+"/python3-umu-launcher_"+$tag+"-1_amd64_debian-13.deb"),digest:("sha256:"+$pysha)},
+            {name:("umu-launcher_"+$tag+"-1_all_debian-13.deb"),browser_download_url:($prefix+$tag+"/umu-launcher_"+$tag+"-1_all_debian-13.deb"),digest:("sha256:"+$umusha)}
+          ]}' > "$WORK/release.json"
+}
+
 echo "==> Consultando a ultima versao do umu-launcher"
-curl_get "$UMU_API" "$WORK/release.json"
+fetch_release
 
 fetch_deb() {   # fetch_deb REGEX DESTINO: baixa o arquivo da release que casa com o nome e confere o SHA-256
     line=$(jq -r --arg re "$1" '[.assets[] | select(.name | test($re))] | first

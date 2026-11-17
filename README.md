@@ -37,7 +37,8 @@ O diferencial visual do Andrey OS é que **cada janela aberta aparece como uma a
   muda o tamanho dos ícones e liga/desliga o fundo transparente; **botão direito num app do Menu Iniciar > Fixar no dock**
   faz o mesmo direto. Pela linha de comando: `andrey-dock --list | --add APP.desktop | --remove APP.desktop | --reset |
   --transparent on|off | --size N`. As configurações ficam no mate-panel (gsettings), sem precisar de root. O fundo padrão é aplicado uma
-  vez por usuário (`session-setup`, nível 9); depois disso a escolha é sua.
+  vez por usuário (`session-setup`, nível 10); depois disso a escolha é sua.
+- **Roda do mouse rolando sozinha:** abra *Corrigir roda do mouse* no Menu Iniciar. Escolha o dispositivo e bloqueie a rolagem vertical; o ponteiro e os cliques seguem funcionando. *Restaurar roda* desfaz a alteração. O bloqueio fica salvo por dispositivo e reaplica no próximo login; ele contorna eventos involuntários, não repara o componente físico.
 - **Apps exclusivos:** o **Andrey AI** e o **Andrey Music** são apps feitos para o Andrey OS e já vêm instalados. Abrem em janela própria, com o mesmo visual do sistema, e entram na barra superior como qualquer outro programa (veja a seção abaixo).
 
 Por baixo é o MATE: a lista de janelas do painel, estilizada para parecer abas. O diferencial não é uma tecnologia nova, e sim a decisão de design aplicada de forma consistente no sistema todo (painel, barra de título, dock e os apps próprios como Andrey Music, display de volume e desinstalador), para tudo ter a mesma cara.
@@ -90,6 +91,7 @@ a instalação e **quebra o build** se Steam, Wine ou as libs gráficas de 32 bi
 - NVIDIA: o `andrey-drivers` agora também instala `nvidia-driver-libs-i386` (o Steam precisa)
 - `vm.max_map_count` alto (`/usr/lib/sysctl.d/80-andrey-games.conf`), exigido por vários jogos
 - Arquivos `.exe` abrem com duplo clique pelo **Proton-GE** (veja a próxima seção); `winetricks` continua para runtimes (vcrun, dotnet, DXVK)
+- Se a API do GitHub devolver HTTP 403 ao montar a ISO, o hook do UMU usa a versão de fallback fixada no código e valida os dois pacotes Debian com SHA-256 antes da instalação. A instalação do Proton-GE também tenta a página oficial de releases e exige o SHA-512 publicado junto ao arquivo.
 
 A ISO fica ~1 GB maior por causa das bibliotecas de 32 bits.
 
