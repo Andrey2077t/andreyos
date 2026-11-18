@@ -102,12 +102,12 @@ public:
         auto *connectionLayout = new QHBoxLayout(connection);
         connectionLayout->setContentsMargins(18,14,18,14);
         auto *address = new QLabel(QString("No AndreyCam Mobile, informe:  <b>%1</b>  porta  <b>%2</b>  código  <b>%3</b>")
-                                   .arg(localAddress(), QString::number(PORT), QString::number(token_)));
+                                   .arg(localAddress(), QString::number(PORT), token_));
         address->setWordWrap(true);
         connectionLayout->addWidget(address, 1);
         auto *copy = new QPushButton("Copiar endereço");
         connect(copy, &QPushButton::clicked, this, [this] {
-            QApplication::clipboard()->setText(localAddress() + ":" + QString::number(PORT) + "  código " + QString::number(token_));
+            QApplication::clipboard()->setText(localAddress() + ":" + QString::number(PORT) + "  código " + token_);
         });
         connectionLayout->addWidget(copy);
         root->addWidget(connection);
