@@ -12,5 +12,5 @@ Description: Identidade visual e atualizador do Andrey OS
  Paineis (barra superior e dock), icones vermelhos, wallpaper, tema Plymouth,
  branding do instalador, conky, as janelas "Desinstalar Programas" e Display de volume (Qt6), além do atualizador
  "andrey-update", que busca novas versoes no repositorio apt do projeto (GitHub Pages). Tambem traz o
- suporte a compactar/extrair arquivos (Engrampa), o editor de codigo Andrey Code (Qt6), o aplicativo Andrey Music e o "Executar com Proton" (andrey-exe),
+ suporte a compactar/extrair arquivos (Engrampa), o editor de codigo Andrey Code (Qt6), os aplicativos Andrey Music e Andrey Share e o "Executar com Proton" (andrey-exe),
  que abre .exe com duplo clique pelo umu-launcher + Proton-GE.

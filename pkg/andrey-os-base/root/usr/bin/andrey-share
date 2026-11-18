@@ -1,0 +1,39 @@
+#!/bin/sh
+# Andrey Share como app do Andrey OS: janela Chromium dedicada ao PWA de compartilhamento.
+# Perfil separado do navegador e dos outros apps Andrey.
+URL="https://andreyshare.pages.dev/"
+CLASS="AndreyShare"
+PROFILE="${XDG_CONFIG_HOME:-$HOME/.config}/andrey-share"
+
+BROWSER=""
+for b in chromium chromium-browser google-chrome-stable google-chrome; do
+    if command -v "$b" >/dev/null 2>&1; then BROWSER="$b"; break; fi
+done
+if [ -z "$BROWSER" ]; then
+    zenity --warning --no-wrap --title="Andrey Share" \
+        --text="O Andrey Share precisa do Chromium para abrir como aplicativo.\nInstale o \"Chromium\" pela Loja de Aplicativos.\n\nPor enquanto vou abrir no navegador." 2>/dev/null || true
+    exec xdg-open "$URL"
+fi
+
+# Se ja estiver aberto, traz a janela existente para a frente.
+if pgrep -f -- "--user-data-dir=$PROFILE" >/dev/null 2>&1 && command -v wmctrl >/dev/null 2>&1; then
+    if wmctrl -x -l 2>/dev/null | grep -qi "andreyshare"; then
+        wmctrl -x -a "andreyshare" 2>/dev/null && exit 0
+    fi
+fi
+
+# Usa a barra de titulo nativa do Andrey OS e guarda cookies/sessao num perfil proprio.
+if [ ! -e "$PROFILE/Default/Preferences" ]; then
+    mkdir -p "$PROFILE/Default"
+    printf '%s\n' '{"browser":{"custom_chrome_frame":false}}' > "$PROFILE/Default/Preferences"
+fi
+
+exec "$BROWSER" \
+    --app="$URL" \
+    --class="$CLASS" \
+    --user-data-dir="$PROFILE" \
+    --no-first-run --no-default-browser-check \
+    --disable-session-crashed-bubble --hide-crash-restore-bubble \
+    --password-store=basic \
+    --lang=pt-BR \
+    --disable-features=Translate,MediaRouter

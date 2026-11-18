@@ -45,7 +45,7 @@ O diferencial visual do Andrey OS é que **cada janela aberta aparece como uma a
   --transparent on|off | --size N`. As configurações ficam no mate-panel (gsettings), sem precisar de root. O fundo padrão é aplicado uma
   vez por usuário (`session-setup`, nível 10); depois disso a escolha é sua.
 - **Roda do mouse rolando sozinha:** abra *Corrigir roda do mouse* no Menu Iniciar. Escolha o dispositivo e bloqueie a rolagem vertical; o ponteiro e os cliques seguem funcionando. *Restaurar roda* desfaz a alteração. O bloqueio fica salvo por dispositivo e reaplica no próximo login; ele contorna eventos involuntários, não repara o componente físico.
-- **Apps exclusivos:** o **Andrey AI** e o **Andrey Music** são apps feitos para o Andrey OS e já vêm instalados. Abrem em janela própria, com o mesmo visual do sistema, e entram na barra superior como qualquer outro programa (veja a seção abaixo).
+- **Apps exclusivos:** o **Andrey AI**, o **Andrey Music** e o **Andrey Share** são apps integrados ao Andrey OS. Abrem em janelas próprias e entram na barra superior como qualquer outro programa (veja a seção abaixo).
 
 Por baixo é o MATE: a lista de janelas do painel, estilizada para parecer abas. O diferencial não é uma tecnologia nova, e sim a decisão de design aplicada de forma consistente no sistema todo (painel, barra de título, dock e os apps próprios como Andrey Music, display de volume e desinstalador), para tudo ter a mesma cara.
 
@@ -153,14 +153,14 @@ Formatos: `zip`, `7z`, `rar` (só extrair), `tar`, `gz`, `bz2`, `xz`, `zst`, `lz
 No terminal ficam `zip`, `unzip`, `7z`, `unrar`, `tar`, `xz`, `zstd`. O hook `config/hooks/live/0260-archive.hook.chroot`
 **quebra o build** se algum backend faltar. Quem já usa o sistema recebe tudo ao atualizar o `andrey-os-base`.
 
-## Apps exclusivos: Andrey AI e Andrey Music
+## Apps exclusivos: Andrey AI, Andrey Music e Andrey Share
 
 Dois apps próprios do Andrey OS, já instalados e integrados ao sistema (menu, atalhos, ícone e perfil separados). Abrem em janela própria, sem barra de endereço, e se já estiverem abertos só trazem a janela para a frente.
 
 - **Andrey AI** (`andrey-ai`): a IA do sistema, a um atalho de distância com `Super+Espaço`.
-- **Andrey Music** (`andrey-music`): player de música no menu *Som e Vídeo* e fixado no Menu Iniciar. A música continua tocando com a janela em segundo plano e as teclas de mídia funcionam.
+- **Andrey Music** (`andrey-music`): player de música no menu *Som e Vídeo* e fixado no Menu Iniciar. A música continua tocando com a janela em segundo plano e as teclas de mídia funcionam.\n- **Andrey Share** (`andrey-share`): PWA para transferir arquivos entre PC e celular ou entre dois PCs. Abre numa janela própria e fica fixado no Menu Iniciar.
 
-Detalhes técnicos: cada app roda em Chromium em modo `--app` e carrega https://andreyai.pages.dev/ e https://andreymusic.pages.dev/. `ANDREY_MUSIC_URL` troca o endereço do Andrey Music.
+Detalhes técnicos: cada app roda em Chromium em modo `--app`, com perfil próprio. O Andrey AI carrega https://andreyai.pages.dev/, o Andrey Music carrega https://andreymusic.pages.dev/ e o Andrey Share carrega https://andreyshare.pages.dev/. `ANDREY_MUSIC_URL` troca o endereço do Andrey Music.
 
 ## Desinstalar Programas
 

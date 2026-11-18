@@ -16,7 +16,8 @@ dpkg-query -W -f='${Status}' andrey-os-base 2>/dev/null | grep -q 'install ok in
 for f in /usr/share/mate-panel/layouts/andrey.layout /usr/share/icons/Andrey/index.theme \
          /usr/share/backgrounds/andrey/andrey-os.png /usr/bin/andrey-update /usr/bin/andrey-uninstall /usr/bin/andrey-volume-osd \
          /usr/bin/andrey-music /usr/share/applications/andrey-music.desktop /usr/share/icons/Andrey/scalable/apps/andrey-music.svg \
-         /usr/bin/andrey-code /usr/share/applications/andrey-code.desktop /usr/share/icons/Andrey/scalable/apps/andrey-code.svg; do
+         /usr/bin/andrey-code /usr/share/applications/andrey-code.desktop /usr/share/icons/Andrey/scalable/apps/andrey-code.svg \\
+         /usr/bin/andrey-share /usr/share/applications/andrey-share.desktop /usr/share/icons/Andrey/scalable/apps/andrey-share.svg; do
     [ -e "$f" ] || { echo "ERRO: $f ausente depois de instalar o andrey-os-base." >&2; exit 1; }
 done
 

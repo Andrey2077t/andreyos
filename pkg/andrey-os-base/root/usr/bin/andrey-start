@@ -41,7 +41,7 @@ PINNED_FILE = os.path.join(CFG_DIR, "pinned.json")
 USAGE_FILE = os.path.join(CFG_DIR, "usage.json")
 
 DEFAULT_PINNED = [
-    "andrey-ai.desktop", "andrey-music.desktop", "andrey-code.desktop", "firefox-esr.desktop", "andrey-files.desktop", "andrey-terminal.desktop",
+    "andrey-ai.desktop", "andrey-music.desktop", "andrey-share.desktop", "andrey-code.desktop", "firefox-esr.desktop", "andrey-files.desktop", "andrey-terminal.desktop",
     "andrey-store.desktop", "andrey-monitor.desktop", "andrey-settings.desktop",
     "mate-calc.desktop", "pluma.desktop", "andrey-update.desktop", "andrey-about.desktop",
     "eom.desktop", "atril.desktop",
