@@ -86,6 +86,13 @@ def slugify(text, fallback="app"):
 def short_hash(text):
     return hashlib.sha1(text.encode("utf-8", "replace")).hexdigest()[:6]
 
+def is_rufus(path):
+    """Reconhece o executável portátil do Rufus pelo padrão de nome dos downloads."""
+    name = os.path.basename(path)
+    return bool(re.fullmatch(r"rufus(?:[-_ ][^/\\]*)?\.exe", name, re.I))
+
+
+
 
 # --------------------------------------------------------------------------- leitura do cabeçalho PE
 def read_pe(path):
@@ -210,7 +217,7 @@ def classify(path):
     p = os.path.abspath(path)
     stem, ext = os.path.splitext(os.path.basename(p))
     ext, low, d = ext.lower(), stem.lower(), os.path.dirname(p)
-    out = {"kind": "app", "reasons": [], "bits": 0, "appid": None, "redist": False, "dotnet": False}
+    out = {"kind": "app", "reasons": [], "bits": 0, "appid": None, "redist": False, "dotnet": False, "rufus": is_rufus(p)}
     if ext == ".msi":
         out.update(kind="installer", reasons=["pacote .msi"])
         return out
@@ -220,6 +227,9 @@ def classify(path):
     pe = read_pe(p) if ext == ".exe" else None
     if pe:
         out["bits"], out["dotnet"] = pe["bits"], pe["dotnet"]
+    if out["rufus"]:
+        out["reasons"] = ["Rufus; executável Windows portátil"]
+        return out
 
     if REDIST_RE.search(low):
         out.update(kind="installer", redist=True, reasons=["componente do Windows (runtime/redistribuível)"])
@@ -292,6 +302,8 @@ def classify(path):
 def display_name(path, kind="app"):
     """Nome para mostrar/atalho: jogos usam a pasta do jogo (Steam/GOG), o resto o nome do arquivo."""
     p = os.path.abspath(path)
+    if is_rufus(p):
+        return "Rufus"
     stem = os.path.splitext(os.path.basename(p))[0]
     stem = re.sub(r"-win(64|32)-shipping$", "", stem, flags=re.I)
     pretty = re.sub(r"[_]+", " ", stem).strip() or "Programa"
@@ -313,6 +325,8 @@ def prefix_for(kind, path, home=None, redist=False):
     """Pasta do "Windows" (WINEPREFIX) deste programa. Jogo e instalador têm a deles; programa comum divide uma só."""
     root = prefixes_dir(home)
     p = os.path.abspath(path)
+    if is_rufus(p):
+        return os.path.join(root, "rufus")
     if kind == "game":
         d = os.path.dirname(p)
         return os.path.join(root, "jogo-%s-%s" % (slugify(display_name(p, "game"), "jogo"), short_hash(d)))

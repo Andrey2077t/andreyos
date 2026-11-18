@@ -58,6 +58,9 @@ def ask_run(name, kind, info, can_shortcut):
         bits = " de %d bits" % info["bits"] if info["bits"] else ""
         text = "%s\n\nTipo: %s%s (%s)\nVai abrir com o Proton-GE, num ambiente separado do resto do sistema." % (
             name, E.KIND_LABEL[kind], bits, why)
+        if info.get("rufus"):
+            text = ("Rufus\n\nVai abrir com Wine em um prefixo separado. O Wine não será executado como root.\n"
+                    "A interface pode abrir, mas o acesso direto a discos/USB do Rufus não é garantido no Linux.")
         if kind == "installer":
             text += "\nQuando o instalador terminar, você poderá criar o atalho do programa instalado."
         nxt = E.KINDS[(E.KINDS.index(kind) + 1) % len(E.KINDS)]
@@ -129,15 +132,24 @@ def offer_installed(prefix, before):
 
 # --------------------------------------------------------------------------- execução
 def run(path, kind, prefix, info, args, conf):
-    umu = shutil.which("umu-run")
-    if not umu:
+    rufus = info.get("rufus", False)
+    if rufus and os.geteuid() == 0:
+        say_error("Por segurança, não execute Rufus/Wine como root. Abra pelo Menu Iniciar ou pelo gerenciador de arquivos da sua sessão.")
+        return 1
+    umu = None if rufus else shutil.which("umu-run")
+    if rufus and not shutil.which("wine"):
+        say_error("Não encontrei o Wine necessário para abrir o Rufus. Atualize o Andrey OS ou rode 'andrey-games --repair'.")
+        return 1
+    if not rufus and not umu:
         if not shutil.which("wine"):
             say_error("Não encontrei o umu-run nem o Wine. Rode 'andrey-games --repair' ou atualize o Andrey OS.")
             return 1
         E.notify("umu-run não encontrado", "Abrindo com o Wine puro (sem Proton).")
-    proton = E.find_proton(conf)
+    elif rufus:
+        E.notify("Abrindo Rufus", "Wine em prefixo separado; operações de gravação USB podem não funcionar no Linux.")
+    proton = None if rufus else E.find_proton(conf)
     cmd, env, cwd = E.build_run(path, kind, prefix, proton, args, umu=umu, appid=info.get("appid"),
-                                gamemode=conf["gamemode"] == "on")
+                                gamemode=not rufus and conf["gamemode"] == "on")
     os.makedirs(prefix, exist_ok=True)
     lp = E.log_path()
     os.makedirs(os.path.dirname(lp), exist_ok=True)
@@ -246,12 +258,14 @@ def main(argv):
     info = E.classify(path)
     kind = o["kind"] or info["kind"]
     if o["info"]:
-        print("arquivo : %s\ntipo    : %s (%s)\nbits    : %s\nsteam id: %s\nprefixo : %s\nproton  : %s" % (
+        runner = "Wine (Rufus)" if info.get("rufus") else E.find_proton(conf)
+        note = "\nnota    : a interface pode abrir; gravação direta em USB não é garantida no Linux" if info.get("rufus") else ""
+        print(("arquivo : %s\ntipo    : %s (%s)\nbits    : %s\nsteam id: %s\nprefixo : %s\nexecução: %s%s") % (
             path, E.KIND_LABEL[kind], ", ".join(info["reasons"]), info["bits"] or "?", info["appid"] or "-",
-            o["prefix"] or E.prefix_for(kind, path, redist=info["redist"]), E.find_proton(conf)))
+            o["prefix"] or E.prefix_for(kind, path, redist=info["redist"]), runner, note))
         return 0
 
-    known = E.known_entry(path)
+    known = None if info.get("rufus") else E.known_entry(path)
     if o["shortcut"]:
         if known and not o["kind"]:
             kind = known.get("kind", kind)
