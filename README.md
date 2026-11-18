@@ -117,7 +117,7 @@ o `umu-launcher` e o Proton-GE já vêm dentro da ISO. Quem cuida disso é o `an
 - **Criar atalho depois:** botão direito no arquivo > *Abrir com* > **Criar atalho (Proton)**.
 - **Proton usado:** o `GE-Proton` mais novo entre o que veio na ISO (`/usr/share/andrey-os/proton`) e o que você instalou com
   `andrey-games --proton-ge`. Sem nenhum, o `umu-run` baixa o mais novo sozinho.
-- **Rufus:** ao dar dois cliques em `rufus.exe` ou `rufus-<versão>.exe`, o Andrey OS reconhece o nome e abre o executável com Wine em um prefixo separado (`~/.local/share/andrey-os/exe/prefixes/rufus`). O Wine não roda como root. A interface pode abrir, mas a gravação/acesso direto a discos USB não é garantida: o Rufus depende de APIs e privilégios do Windows e o projeto não oferece suporte a Linux/Wine. Consulte o [FAQ oficial do Rufus](https://github.com/pbatard/rufus/wiki/FAQ#planned-features).
+- **Rufus:** ao dar dois cliques em `rufus.exe` ou `rufus-<versão>.exe`, o Andrey OS reconhece o nome e abre o executável com Wine em um prefixo separado (`~/.local/share/andrey-os/exe/prefixes/rufus`). Antes de abrir, configura `UseXVidMode=N` só nesse prefixo para contornar uma falha do driver X11 do Wine. O Wine não roda como root. A interface pode abrir, mas a gravação/acesso direto a discos USB não é garantida: o Rufus depende de APIs e privilégios do Windows e o projeto não oferece suporte a Linux/Wine. Consulte o [FAQ oficial do Rufus](https://github.com/pbatard/rufus/wiki/FAQ#planned-features).
 - **Sem o `umu-run`** (quem atualizou o sistema mas não reinstalou a ISO): abre no Wine puro, com aviso.
 
 Linha de comando: `andrey-exe ARQUIVO.exe` · `--shortcut ARQUIVO` (só cria o atalho) · `--info ARQUIVO` (mostra a detecção) ·

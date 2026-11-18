@@ -151,6 +151,12 @@ def run(path, kind, prefix, info, args, conf):
     cmd, env, cwd = E.build_run(path, kind, prefix, proton, args, umu=umu, appid=info.get("appid"),
                                 gamemode=not rufus and conf["gamemode"] == "on")
     os.makedirs(prefix, exist_ok=True)
+    if rufus:
+        try:
+            E.configure_rufus_prefix(prefix)
+        except RuntimeError as e:
+            say_error(str(e))
+            return 1
     lp = E.log_path()
     os.makedirs(os.path.dirname(lp), exist_ok=True)
     first = umu and not os.path.exists(E.first_run_marker())

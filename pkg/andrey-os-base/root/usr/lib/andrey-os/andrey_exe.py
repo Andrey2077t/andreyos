@@ -387,6 +387,25 @@ def build_run(path, kind, prefix, proton, args=(), umu=None, appid=None, gamemod
     return cmd, env, os.path.dirname(path) or "."
 
 
+
+def configure_rufus_prefix(prefix):
+    """Desativa XVidMode no prefixo isolado do Rufus antes de iniciar processos GUI."""
+    wine = shutil.which("wine")
+    if not wine:
+        raise RuntimeError("Wine não está instalado.")
+    env = os.environ.copy()
+    env["WINEPREFIX"] = prefix
+    command = [wine, "reg", "add", r"HKCU\Software\Wine\X11 Driver", "/v", "UseXVidMode",
+               "/t", "REG_SZ", "/d", "N", "/f"]
+    try:
+        result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=90)
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise RuntimeError("Não consegui preparar o prefixo Wine do Rufus: " + str(exc)) from exc
+    if result.returncode:
+        detail = result.stderr.strip() or result.stdout.strip() or "wine reg add terminou com erro."
+        raise RuntimeError("Não consegui desativar XVidMode no prefixo Rufus: " + detail)
+
+
 # --------------------------------------------------------------------------- arquivos já conhecidos
 def _known_file(home=None):
     return os.path.join(state_dir(home), "known.json")
