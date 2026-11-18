@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=AndreyCam
+GenericName=Câmera e microfone do celular
+Comment=Use seu celular como câmera e microfone no Andrey OS
+Exec=andreycam
+Icon=andrey-cam
+Terminal=false
+Categories=AudioVideo;Video;Audio;
+Keywords=câmera;webcam;microfone;celular;andreycam;
+StartupNotify=true

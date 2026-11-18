@@ -1,5 +1,12 @@
 # Andrey OS
 
+## AndreyCam
+
+O AndreyCam usa um telefone Android como webcam e microfone pela rede local. Abra **AndreyCam** no computador e o app **AndreyCam Mobile** no Android; conecte os dois à mesma rede Wi-Fi e informe no celular o IP, a porta e o código de seis dígitos exibidos na janela. Escolha câmera, microfone ou os dois no computador e inicie a conexão. O app móvel solicita apenas a permissão do sensor escolhido e transmite somente depois do comando de início.
+
+O cliente Android está em `apps/andreycam-android` e pode ser aberto no Android Studio para gerar o APK (`Build > Build APK(s)`). Requer Android 8.0 ou mais recente. O AndreyCam do computador publica a câmera virtual em `/dev/video42` usando `ffmpeg` e `v4l2loopback`; a entrada de áudio é criada no PulseAudio enquanto o aplicativo está conectado. Se o módulo de câmera virtual não estiver instalado para o kernel em uso, instale `v4l2loopback-dkms` e os headers correspondentes ao kernel, depois reinicie o AndreyCam. A conexão usa TCP na porta 47017 e um código aleatório por execução, mas não tem criptografia; use uma rede local confiável.
+
+
 O Andrey OS não possui malwares, nós não nos responsabilizamos se uma pessoa fizer um fork fornecendo malwares na versão dela, não temos afiliação com nenhum fork.
 
 Sistema operacional focado em privacidade, desempenho e velocidade. Um desktop limpo, leve e sob controle. Sem telemetria, sem serviços desnecessários e sem atrito.
