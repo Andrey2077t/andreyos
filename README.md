@@ -1,11 +1,10 @@
 # Andrey OS
 
-## AndreyCam
+## Áudio: dispositivos novos sem reiniciar
 
-O AndreyCam usa um telefone Android como webcam e microfone pela rede local. Abra **AndreyCam** no computador e o app **AndreyCam Mobile** no Android; conecte os dois à mesma rede Wi-Fi e informe no celular o IP, a porta e o código de seis dígitos exibidos na janela. Escolha câmera, microfone ou os dois no computador e inicie a conexão. O app móvel solicita apenas a permissão do sensor escolhido e transmite somente depois do comando de início.
+O Andrey OS monitora dispositivos de som conectados. Ao conectar ou remover um dispositivo, o PulseAudio reenumera as placas ALSA sem reiniciar o PC; o sistema também tenta habilitar o perfil duplex de placas analógicas que aparecem só como saída. O módulo de troca automática seleciona um dispositivo novo para reprodução quando apropriado, e a entrada padrão só é alterada automaticamente quando estava apontando para um monitor HDMI.
 
-O cliente Android está em `apps/andreycam-android` e pode ser aberto no Android Studio para gerar o APK (`Build > Build APK(s)`). Requer Android 8.0 ou mais recente. O AndreyCam do computador publica a câmera virtual em `/dev/video42` usando `ffmpeg` e `v4l2loopback`; a entrada de áudio é criada no PulseAudio enquanto o aplicativo está conectado. Se o módulo de câmera virtual não estiver instalado para o kernel em uso, instale `v4l2loopback-dkms` e os headers correspondentes ao kernel, depois reinicie o AndreyCam. A conexão usa TCP, tenta primeiro a porta 47017 e escolhe automaticamente uma porta livre se ela não puder ser aberta; a janela mostra a porta efetivamente usada e o botão de cópia inclui essa porta. O celular precisa usar exatamente o número mostrado. A conexão usa um código aleatório por execução, mas não tem criptografia; use uma rede local confiável.
-
+Se uma entrada ou saída não aparecer, abra **Atualizar dispositivos de áudio** no menu. Esse comando recarrega o detector de placas do PulseAudio e reaplica o ajuste de perfil, sem reiniciar o computador. A enumeração pode interromper o áudio por alguns segundos.
 
 O Andrey OS não possui malwares, nós não nos responsabilizamos se uma pessoa fizer um fork fornecendo malwares na versão dela, não temos afiliação com nenhum fork.
 

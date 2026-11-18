@@ -4,6 +4,9 @@ set -e
 
 case "$1" in
 configure)
+    # Remove atalhos/binarios antigos do AndreyCam em sistemas atualizados.
+    rm -f /usr/bin/andreycam /usr/share/applications/andreycam.desktop
+
     # versao do pacote -> os-release, issue, motd (sempre iguais ao que foi publicado)
     /usr/lib/andrey-os/sync-version || true
 

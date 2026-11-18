@@ -94,8 +94,7 @@ rtkit
 alsa-utils
 mate-power-manager
 
-# ---- AndreyCam: ffmpeg publica vídeo quando o v4l2loopback estiver instalado
-ffmpeg
+
 
 # ---- Instalador: ferramentas de disco (sem recomendados, nada disso vem sozinho)
 # fdisk traz o sfdisk (o Calamares/KPMcore cria as particoes com ele); dosfstools = mkfs.fat da particao EFI

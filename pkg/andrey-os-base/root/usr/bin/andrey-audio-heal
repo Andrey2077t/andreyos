@@ -1,28 +1,14 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-"""Andrey OS - garante a ENTRADA de audio (microfone) das placas de som analogicas.
-
-Problema: muitas placas-mae (HDA/Realtek) nao avisam o kernel quando o plugue do microfone entra. O PulseAudio
-entao deixa a placa so no perfil de saida ("output:analog-stereo") e o microfone nunca aparece em Preferencias de
-Som (so o "Monitor" do HDMI), nem plugando o fone, ate mexer no perfil na mao.
-
-Solucao: se a placa esta so em saida e existe o perfil duplex equivalente ("saida + entrada"), troca UMA vez por
-placa e deixa a entrada dela como padrao se o padrao atual for so um "Monitor". Depois disso o que a pessoa
-escolher (perfil, porta) e do PulseAudio, que lembra sozinho.
-
-  andrey-audio-heal            verifica uma vez e sai
-  andrey-audio-heal --daemon   verifica ao iniciar e sempre que uma placa nova aparece (USB, Bluetooth...)
-  andrey-audio-heal --dry-run  so mostra o que faria
-"""
+"""Atualiza dispositivos PulseAudio sem reiniciar o computador e repara perfis analogicos."""
 import json
 import os
 import subprocess
 import sys
+import threading
 import time
 
-STATE = os.path.join(os.environ.get("XDG_CONFIG_HOME") or os.path.expanduser("~/.config"),
-                     "andrey-os", "audio-healed")
-
+HEAL_LOCK = threading.Lock()
 
 def pactl(*args):
     try:
@@ -73,43 +59,49 @@ def real_sources():
     return [n for n in names if not n.endswith(".monitor")]
 
 
-def load_state():
-    try:
-        with open(STATE, encoding="utf-8") as fh:
-            return {ln.strip() for ln in fh if ln.strip()}
-    except OSError:
-        return set()
-
-
-def save_state(names):
-    try:
-        os.makedirs(os.path.dirname(STATE), exist_ok=True)
-        with open(STATE, "w", encoding="utf-8") as fh:
-            fh.write("\n".join(sorted(names)) + "\n")
-    except OSError:
-        pass
-
-
 def heal(dry=False):
-    healed = load_state()
-    todo = plan(list_cards(), healed)
-    for card, profile in todo:
-        print("andrey-audio-heal: %s -> %s" % (card, profile))
-        if dry:
-            continue
-        if pactl("set-card-profile", card, profile) is None:
-            continue
-        healed.add(card)
-        time.sleep(1)
-        # entrada da propria placa como padrao, se o padrao atual for so um "Monitor"
-        suffix = card[len("alsa_card."):]
-        mine = [s for s in real_sources() if s.startswith("alsa_input." + suffix + ".")]
-        cur = (pactl("get-default-source") or "").strip()
-        if mine and (not cur or cur.endswith(".monitor")):
-            pactl("set-default-source", mine[0])
-    if todo and not dry:
-        save_state(healed)
-    return len(todo)
+    # O perfil ativo ja impede repeticao; nao grave estado permanente, pois a pessoa
+    # pode trocar o perfil e precisar que a placa seja avaliada novamente.
+    with HEAL_LOCK:
+        todo = plan(list_cards(), set())
+        for card, profile in todo:
+            print("andrey-audio-heal: %s -> %s" % (card, profile))
+            if dry:
+                continue
+            if pactl("set-card-profile", card, profile) is None:
+                continue
+            time.sleep(1)
+            # entrada da propria placa como padrao, se o padrao atual for so um "Monitor"
+            suffix = card[len("alsa_card."):]
+            mine = [s for s in real_sources() if s.startswith("alsa_input." + suffix + ".")]
+            cur = (pactl("get-default-source") or "").strip()
+            if mine and (not cur or cur.endswith(".monitor")):
+                pactl("set-default-source", mine[0])
+        return len(todo)
+
+
+def refresh_devices():
+    """Reenumera placas ALSA no PulseAudio sem derrubar o servidor inteiro."""
+    modules = pactl("list", "short", "modules")
+    if modules is None:
+        return False
+    detector_ids = []
+    for line in modules.splitlines():
+        fields = line.split("\t", 2)
+        if len(fields) >= 2 and fields[1] == "module-udev-detect":
+            detector_ids.append(fields[0])
+    for module_id in detector_ids:
+        if pactl("unload-module", module_id) is None:
+            return False
+    if pactl("load-module", "module-udev-detect") is None:
+        # Recupera a configuracao padrao do PulseAudio se a recarga isolada falhar.
+        subprocess.run(["pulseaudio", "-k"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.run(["pulseaudio", "--start"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        if not wait_for_pulse(10):
+            return False
+    time.sleep(1.5)
+    heal()
+    return True
 
 
 def wait_for_pulse(seconds=30):
@@ -120,10 +112,44 @@ def wait_for_pulse(seconds=30):
     return False
 
 
+def monitor_udev():
+    """Faz uma nova enumeração quando o kernel anuncia add/remove de som."""
+    last_refresh = 0.0
+    while True:
+        try:
+            proc = subprocess.Popen(
+                ["udevadm", "monitor", "--udev", "--subsystem-match=sound", "--property"],
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True,
+                env={**os.environ, "LC_ALL": "C"})
+        except OSError:
+            time.sleep(15)
+            continue
+        action = None
+        for raw in proc.stdout:
+            line = raw.strip()
+            if line.startswith("UDEV "):
+                action = None
+            elif line.startswith("ACTION="):
+                action = line.partition("=")[2]
+            elif not line and action in ("add", "remove", "change"):
+                now = time.monotonic()
+                if now - last_refresh >= 2.0:
+                    time.sleep(1.0)  # aguarda ALSA/udev terminar de criar/remover os nos
+                    if refresh_devices():
+                        last_refresh = time.monotonic()
+                action = None
+        try:
+            proc.wait(timeout=1)
+        except subprocess.TimeoutExpired:
+            proc.terminate()
+        time.sleep(3)
+
+
 def daemon():
     if not wait_for_pulse():
         return 1
     heal()
+    threading.Thread(target=monitor_udev, daemon=True).start()
     while True:
         try:
             p = subprocess.Popen(["pactl", "subscribe"], stdout=subprocess.PIPE, text=True,
@@ -131,7 +157,7 @@ def daemon():
         except OSError:
             return 1
         for line in p.stdout:
-            if "'new' on card" in line:
+            if "'new' on card" in line or "'change' on card" in line:
                 time.sleep(1.5)  # deixa a placa terminar de subir
                 heal()
         time.sleep(3)  # PulseAudio reiniciou: reconecta
@@ -142,6 +168,15 @@ def daemon():
 def main(argv):
     if "--daemon" in argv:
         return daemon()
+    if "--refresh" in argv:
+        if not wait_for_pulse(10):
+            print("andrey-audio-heal: PulseAudio nao esta rodando", file=sys.stderr)
+            return 1
+        if not refresh_devices():
+            print("andrey-audio-heal: nao consegui reenumerar os dispositivos de audio", file=sys.stderr)
+            return 1
+        print("Dispositivos de audio atualizados sem reiniciar o computador.")
+        return 0
     if not wait_for_pulse(10):
         print("andrey-audio-heal: PulseAudio nao esta rodando", file=sys.stderr)
         return 1

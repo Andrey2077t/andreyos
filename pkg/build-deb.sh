@@ -60,19 +60,12 @@ if command -v g++ >/dev/null 2>&1 && pkg-config --exists Qt6Widgets Qt6Svg Qt6Ne
     g++ -std=c++17 -O2 -fPIC -Wall -Wextra ui/andrey_code.cpp -o "$STAGE/usr/bin/andrey-code" \
         $(pkg-config --cflags --libs Qt6Widgets Qt6Network)
     strip "$STAGE/usr/bin/andrey-code" 2>/dev/null || true
-    # AndreyCam: recebe vídeo/áudio do cliente Android e publica as fontes locais
-    echo "==> Compilando andreycam (Qt6)"
-    # shellcheck disable=SC2046
-    g++ -std=c++17 -O2 -fPIC -Wall -Wextra ui/andreycam.cpp -o "$STAGE/usr/bin/andreycam" \
-        $(pkg-config --cflags --libs Qt6Widgets Qt6Network)
-    strip "$STAGE/usr/bin/andreycam" 2>/dev/null || true
     ARCH="$(dpkg --print-architecture)"
     # t64: no Debian 13 algumas bibliotecas Qt6 ganharam esse sufixo; a alternativa deixa o apt escolher a que existir
     QTDEPS=", libqt6widgets6t64 | libqt6widgets6, libqt6svg6t64 | libqt6svg6, libqt6network6t64 | libqt6network6, qt6-qpa-plugins, libxcb-cursor0"
 elif [ "${ANDREY_SKIP_QT:-0}" = 1 ]; then
     echo "AVISO: sem Qt6 (qt6-base-dev qt6-svg-dev): pacote SEM a janela de desinstalar. So para testes." >&2
     rm -f "$STAGE/usr/share/applications/andrey-uninstall.desktop" "$STAGE/usr/share/applications/andrey-code.desktop"
-    rm -f "$STAGE/usr/share/applications/andreycam.desktop"
 else
     echo "ERRO: faltam g++ e Qt6 para compilar o andrey-uninstall. Instale: qt6-base-dev qt6-svg-dev pkg-config" >&2
     exit 1
@@ -83,7 +76,6 @@ EXEC_LIB="apply-update user-sync sync-version session-setup apt-helper drivers-h
 find "$STAGE" -type d -exec chmod 755 {} +
 find "$STAGE" -type f -exec chmod 644 {} +
 chmod 755 "$STAGE"/usr/bin/andrey-*
-[ ! -f "$STAGE/usr/bin/andreycam" ] || chmod 755 "$STAGE/usr/bin/andreycam"
 for f in $EXEC_LIB; do chmod 755 "$STAGE/usr/lib/andrey-os/$f"; done
 
 SIZE=$(du -sk --exclude=DEBIAN "$STAGE" | cut -f1)
