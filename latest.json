@@ -1,6 +1,6 @@
 {
-  "version": "0.4.5",
-  "previous": "0.4.4",
-  "notes": "Add game compatibility and safe VFIO assistants",
-  "date": "2026-11-17T22:28:28Z"
+  "version": "0.4.6",
+  "previous": "0.4.5",
+  "notes": "Open Rufus executables through Wine",
+  "date": "2026-11-18T00:35:30Z"
 }
