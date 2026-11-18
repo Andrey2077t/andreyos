@@ -1,6 +1,6 @@
 {
-  "version": "0.4.6",
-  "previous": "0.4.5",
-  "notes": "Open Rufus executables through Wine",
-  "date": "2026-11-18T00:35:30Z"
+  "version": "0.4.7",
+  "previous": "0.4.6",
+  "notes": "Fix Rufus Wine X11 startup crash",
+  "date": "2026-11-18T01:05:14Z"
 }
