@@ -101,13 +101,14 @@ public:
         auto *connection = panel();
         auto *connectionLayout = new QHBoxLayout(connection);
         connectionLayout->setContentsMargins(18,14,18,14);
-        auto *address = new QLabel(QString("No AndreyCam Mobile, informe:  <b>%1</b>  porta  <b>%2</b>  código  <b>%3</b>")
-                                   .arg(localAddress(), QString::number(PORT), token_));
-        address->setWordWrap(true);
-        connectionLayout->addWidget(address, 1);
+        address_ = new QLabel(QString("No AndreyCam Mobile, informe:  <b>%1</b>  porta  <b>%2</b>  código  <b>%3</b>")
+                              .arg(localAddress(), QString::number(PORT), token_));
+        address_->setWordWrap(true);
+        connectionLayout->addWidget(address_, 1);
         auto *copy = new QPushButton("Copiar endereço");
         connect(copy, &QPushButton::clicked, this, [this] {
-            QApplication::clipboard()->setText(localAddress() + ":" + QString::number(PORT) + "  código " + token_);
+            const quint16 port = server_ && server_->isListening() ? server_->serverPort() : PORT;
+            QApplication::clipboard()->setText(localAddress() + ":" + QString::number(port) + "  código " + token_);
         });
         connectionLayout->addWidget(copy);
         root->addWidget(connection);
@@ -158,10 +159,20 @@ public:
         server_ = new QTcpServer(this);
         connect(server_, &QTcpServer::newConnection, this, &AndreyCam::acceptPhone);
         if (!server_->listen(QHostAddress::AnyIPv4, PORT)) {
-            status_->setText("●  Não foi possível abrir a porta de conexão");
-            status_->setStyleSheet("color:#ff7382;");
-            start_->setEnabled(false);
+            const QString fixedPortError = server_->errorString();
+            if (server_->listen(QHostAddress::AnyIPv4, 0)) {
+                status_->setText(QString("●  Porta %1 indisponível; usando %2")
+                                 .arg(PORT).arg(server_->serverPort()));
+                status_->setStyleSheet("color:#ffc66d;font-size:15px;");
+            } else {
+                status_->setText("●  Falha ao abrir a porta: " + server_->errorString() + " (" + fixedPortError + ")");
+                status_->setStyleSheet("color:#ff7382;font-size:15px;");
+                start_->setEnabled(false);
+            }
         }
+        if (server_->isListening())
+            address_->setText(QString("No AndreyCam Mobile, informe:  <b>%1</b>  porta  <b>%2</b>  código  <b>%3</b>")
+                              .arg(localAddress(), QString::number(server_->serverPort()), token_));
     }
 
     ~AndreyCam() override { stopOutputs(); }
@@ -175,6 +186,7 @@ protected:
 
 private:
     QLabel *status_ = nullptr;
+    QLabel *address_ = nullptr;
     QPushButton *start_ = nullptr;
     QButtonGroup *modes_ = nullptr;
     QLabel *preview_ = nullptr;
