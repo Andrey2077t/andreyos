@@ -1,26 +1,4 @@
 Package: andrey-os-base
-Version: 0.4.2
-Architecture: amd64
-Maintainer: Andrey OS <andrey-os@localhost>
-Installed-Size: 2472
-Depends: mate-panel, mate-applets, libglib2.0-bin, pulseaudio-utils, desktop-file-utils, shared-mime-info, libgtk-3-bin, udisks2, gvfs, gvfs-backends, gvfs-fuse, curl, jq, zenity, pkexec, python3, python3-gi, gir1.2-gtk-3.0, gir1.2-wnck-3.0, librsvg2-common, chromium | chromium-browser | google-chrome-stable, wmctrl, bluez, blueman, engrampa, zip, unzip, 7zip | p7zip-full, libqt6widgets6t64 | libqt6widgets6, libqt6svg6t64 | libqt6svg6, libqt6network6t64 | libqt6network6, qt6-qpa-plugins, libxcb-cursor0
-Recommends: fonts-dejavu-core, python3-pyflakes, git, plymouth, pulseaudio-module-bluetooth, bluez-obexd, unrar | unrar-free, xz-utils, bzip2, zstd, icoutils, libnotify-bin
-Suggests: umu-launcher
-Filename: pool/andrey-os-base_0.4.2_amd64.deb
-Size: 732448
-MD5sum: f0b44898f629640ea7ffbf28a52e3eab
-SHA1: cc38ab7d5842589d21ec31b6adfa570eb32623f1
-SHA256: af839069b0a84a5421e0260899b766277cea3be455f34ff29d60fea73a9e43f5
-Section: misc
-Priority: optional
-Description: Identidade visual e atualizador do Andrey OS
- Paineis (barra superior e dock), icones vermelhos, wallpaper, tema Plymouth,
- branding do instalador, conky, a janela "Desinstalar Programas" (Qt6), o Display de volume (Qt6) e o atualizador
- "andrey-update", que busca novas versoes no repositorio apt do projeto (GitHub Pages). Tambem traz o
- suporte a compactar/extrair arquivos (Engrampa), o editor de codigo Andrey Code (Qt6), o aplicativo Andrey Music e o "Executar com Proton" (andrey-exe),
- que abre .exe com duplo clique pelo umu-launcher + Proton-GE.
-
-Package: andrey-os-base
 Version: 0.4.3
 Architecture: amd64
 Maintainer: Andrey OS <andrey-os@localhost>
@@ -216,5 +194,27 @@ Description: Identidade visual e atualizador do Andrey OS
  branding do instalador, conky, as janelas "Desinstalar Programas" e Display de volume (Qt6), além do atualizador
  "andrey-update", que busca novas versoes no repositorio apt do projeto (GitHub Pages). Tambem traz o
  suporte a compactar/extrair arquivos (Engrampa), o editor de codigo Andrey Code (Qt6), os aplicativos Andrey Music e Andrey Share e o "Executar com Proton" (andrey-exe),
+ que abre .exe com duplo clique pelo umu-launcher + Proton-GE.
+
+Package: andrey-os-base
+Version: 0.5.2
+Architecture: amd64
+Maintainer: Andrey OS <andrey-os@localhost>
+Installed-Size: 2664
+Depends: mate-panel, mate-applets, libglib2.0-bin, pulseaudio-utils, desktop-file-utils, shared-mime-info, libgtk-3-bin, udisks2, gvfs, gvfs-backends, gvfs-fuse, curl, jq, zenity, pkexec, python3, python3-gi, gir1.2-gtk-3.0, gir1.2-wnck-3.0, librsvg2-common, xinput, chromium | chromium-browser | google-chrome-stable, wmctrl, bluez, blueman, engrampa, zip, unzip, 7zip | p7zip-full, libqt6widgets6t64 | libqt6widgets6, libqt6svg6t64 | libqt6svg6, libqt6network6t64 | libqt6network6, qt6-qpa-plugins, libxcb-cursor0
+Recommends: fonts-dejavu-core, python3-pyflakes, git, plymouth, pulseaudio-module-bluetooth, bluez-obexd, unrar | unrar-free, xz-utils, bzip2, zstd, icoutils, libnotify-bin
+Suggests: umu-launcher, qemu-system-x86, libvirt-daemon-system, virt-manager, ovmf
+Filename: pool/andrey-os-base_0.5.2_amd64.deb
+Size: 789454
+MD5sum: 33296bcb3e6fa263707ec0dfa21a5d7d
+SHA1: 513439ea13e45e5ee3e0b27b7e889b57fc725851
+SHA256: f0ac5244d8fa93fe57c8d224bf2cb05724214c61de80df021abe5fe0bfb7baa7
+Section: misc
+Priority: optional
+Description: Identidade visual e atualizador do Andrey OS
+ Paineis (barra superior e dock), icones vermelhos, wallpaper, tema Plymouth,
+ branding do instalador, conky, as janelas "Desinstalar Programas" e Display de volume (Qt6), além do atualizador
+ "andrey-update", que busca novas versoes no repositorio apt do projeto (GitHub Pages). Tambem traz o
+ suporte a compactar/extrair arquivos (Engrampa), o editor de codigo Andrey Code (Qt6), os aplicativos Andrey Music e Andrey Share, os Perfis de Sessão (Diário, Focus, Competitive e Dev) e o "Executar com Proton" (andrey-exe),
  que abre .exe com duplo clique pelo umu-launcher + Proton-GE.
 
