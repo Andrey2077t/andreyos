@@ -1,4 +1,4 @@
-name: Build Andrey OS ISO
+name: Build Cisma OS ISO
 
 # ISO so sai quando voce clica em "Run workflow". As tags/versoes (v0.0.x) sao publicadas pelo
 # workflow "Publicar versao" como ATUALIZACAO (apt), sem gerar ISO nova.
@@ -38,7 +38,7 @@ jobs:
       - name: Publicar ISO como artefato
         uses: actions/upload-artifact@v4
         with:
-          name: andrey-os-iso
+          name: cisma-os-iso
           path: |
             *.iso
             SHA256SUMS

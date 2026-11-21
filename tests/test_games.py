@@ -8,9 +8,9 @@ import tarfile
 import tempfile
 import unittest
 
-ROOT = os.path.join(os.path.dirname(__file__), "..", "pkg", "andrey-os-base", "root")
-sys.path.insert(0, os.path.join(ROOT, "usr", "lib", "andrey-os"))
-g = importlib.import_module("andrey_games")
+ROOT = os.path.join(os.path.dirname(__file__), "..", "pkg", "cisma-os-base", "root")
+sys.path.insert(0, os.path.join(ROOT, "usr", "lib", "cisma-os"))
+g = importlib.import_module("cisma_games")
 
 TAG = "GE-Proton10-1"
 URL = g.PROTON_GE_PREFIX + TAG + "/"
@@ -120,11 +120,11 @@ class DiagnoseTests(unittest.TestCase):
         res = g.diagnose(tempfile.mkdtemp())
         self.assertTrue(all(len(r) == 3 for r in res))
         rep = g.render_report(res)
-        self.assertIn("Jogos no Andrey OS", rep)
+        self.assertIn("Jogos no Cisma OS", rep)
         self.assertIn("Proton", rep)
 
     def test_pacotes_de_reparo_passam_no_apt_helper(self):
-        helper = os.path.join(ROOT, "usr", "lib", "andrey-os", "apt-helper")
+        helper = os.path.join(ROOT, "usr", "lib", "cisma-os", "apt-helper")
         func = [ln for ln in open(helper, encoding="utf-8") if ln.startswith("valid()")][0]
         for p in g.REPAIR_PACKAGES:
             r = subprocess.run(["bash", "-c", func + '\nvalid "$1"', "x", p], capture_output=True, timeout=10)
@@ -136,7 +136,7 @@ class DiagnoseTests(unittest.TestCase):
 
 class SysctlTests(unittest.TestCase):
     def test_max_map_count_alto(self):
-        f = os.path.join(ROOT, "usr", "lib", "sysctl.d", "80-andrey-games.conf")
+        f = os.path.join(ROOT, "usr", "lib", "sysctl.d", "80-cisma-games.conf")
         vals = [int(ln.split("=")[1]) for ln in open(f, encoding="utf-8") if ln.startswith("vm.max_map_count")]
         self.assertEqual(len(vals), 1)
         self.assertGreaterEqual(vals[0], g.MIN_MAP_COUNT)

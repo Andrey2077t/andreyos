@@ -6,9 +6,9 @@ import tempfile
 import time
 import unittest
 
-ROOT = os.path.join(os.path.dirname(__file__), "..", "pkg", "andrey-os-base", "root")
-sys.path.insert(0, os.path.join(ROOT, "usr", "lib", "andrey-os"))
-u = importlib.import_module("andrey_uninstall")
+ROOT = os.path.join(os.path.dirname(__file__), "..", "pkg", "cisma-os-base", "root")
+sys.path.insert(0, os.path.join(ROOT, "usr", "lib", "cisma-os"))
+u = importlib.import_module("cisma_uninstall")
 
 STATUS = """Package: vlc
 Status: install ok installed
@@ -21,7 +21,7 @@ Description: multimedia player and streamer
  .
  Second paragraph.
 
-Package: andrey-os-base
+Package: cisma-os-base
 Status: install ok installed
 Installed-Size: 900
 Version: 0.1.8
@@ -106,7 +106,7 @@ class StatusTests(Env):
 
     def test_protegidos(self):
         s = u.parse_status(self.status)
-        self.assertTrue(u.is_protected("andrey-os-base"))
+        self.assertTrue(u.is_protected("cisma-os-base"))
         self.assertTrue(u.is_protected("mate-desktop-environment-core"))
         self.assertTrue(u.is_protected("bash", s["bash"]))
         self.assertTrue(u.is_protected("qualquer", {"Essential": "yes"}))
@@ -193,7 +193,7 @@ class ListTests(Env):
         self.desktop("vlc-extra.desktop", "[Desktop Entry]\nType=Application\nName=VLC media player extra longo\n", "vlc")
         self.desktop("ff.desktop", "[Desktop Entry]\nType=Application\nName=Firefox\nCategories=Network;WebBrowser;\n",
                      "firefox-esr")
-        self.desktop("andrey-store.desktop", "[Desktop Entry]\nType=Application\nName=Loja\n", "andrey-os-base")
+        self.desktop("cisma-store.desktop", "[Desktop Entry]\nType=Application\nName=Loja\n", "cisma-os-base")
         self.desktop("orf.desktop", "[Desktop Entry]\nType=Application\nName=Orfao\n", "pacote-nao-instalado")
         return u.list_apps(status=u.parse_status(self.status), owners=u.desktop_owners(self.info, [self.apps]),
                            dates={}, apps_dirs=[self.apps], info_dir=self.info,
@@ -231,9 +231,9 @@ class PlanTests(Env):
         self.assertEqual(r["extra"], ["firefox-esr"])
 
     def test_bloqueia_se_arrastar_o_sistema(self):
-        r = u.plan(["vlc"], self.st(), simulate=lambda p: ["vlc", "andrey-os-base"])
+        r = u.plan(["vlc"], self.st(), simulate=lambda p: ["vlc", "cisma-os-base"])
         self.assertFalse(r["ok"])
-        self.assertEqual(r["blocked"], ["andrey-os-base"])
+        self.assertEqual(r["blocked"], ["cisma-os-base"])
         self.assertIn("sistema", r["error"])
 
     def test_bloqueia_essential_mesmo_fora_da_lista_fixa(self):

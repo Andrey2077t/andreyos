@@ -1,0 +1,2 @@
+; Atalhos do Caja (Arquivos) - Cisma OS
+(gtk_accel_path "<Actions>/DirViewActions/Rename" "F2")

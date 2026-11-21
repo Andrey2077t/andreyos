@@ -1,4 +1,4 @@
-"""Dock: fundo transparente, edicao dos itens (andrey-dock), integracao no Menu Iniciar e migracao do CSS antigo.
+"""Dock: fundo transparente, edicao dos itens (cisma-dock), integracao no Menu Iniciar e migracao do CSS antigo.
 
 O teste do programa roda com o backend de gsettings "keyfile" numa pasta temporaria (nao mexe nas configuracoes de
 ninguem) e so se os schemas do mate-panel estiverem instalados; sem eles, pula.
@@ -12,8 +12,8 @@ import unittest
 
 HERE = os.path.dirname(__file__)
 TOP = os.path.join(HERE, "..")
-ROOT = os.path.join(TOP, "pkg", "andrey-os-base", "root")
-DOCK = os.path.join(ROOT, "usr", "bin", "andrey-dock")
+ROOT = os.path.join(TOP, "pkg", "cisma-os-base", "root")
+DOCK = os.path.join(ROOT, "usr", "bin", "cisma-dock")
 
 
 def read(*parts):
@@ -39,21 +39,21 @@ class DockEstatico(unittest.TestCase):
         self.assertIn(".mate-panel-menu-bar", seletor)
 
     def test_session_setup_aplica_o_estilo_uma_vez(self):
-        s = read(ROOT, "usr/lib/andrey-os/session-setup")
+        s = read(ROOT, "usr/lib/cisma-os/session-setup")
         self.assertIn("LEVEL=10", s)
-        self.assertIn("andrey-dock --apply-style", s)
+        self.assertIn("cisma-dock --apply-style", s)
         # depois do corte "ja aplicado", senao rodaria a cada login e pisaria na escolha da pessoa
-        self.assertGreater(s.index("andrey-dock --apply-style"), s.index('-ge "$LEVEL"'))
+        self.assertGreater(s.index("cisma-dock --apply-style"), s.index('-ge "$LEVEL"'))
 
     def test_atalho_e_menu_iniciar(self):
-        kv = dict(l.rstrip("\n").split("=", 1) for l in read(ROOT, "usr/share/applications/andrey-dock.desktop").splitlines() if "=" in l)
-        self.assertEqual(kv["Exec"], "andrey-dock")
+        kv = dict(l.rstrip("\n").split("=", 1) for l in read(ROOT, "usr/share/applications/cisma-dock.desktop").splitlines() if "=" in l)
+        self.assertEqual(kv["Exec"], "cisma-dock")
         self.assertNotIn("NoDisplay", kv)
-        self.assertIn("andrey-dock", read(ROOT, "usr/bin/andrey-start"))
+        self.assertIn("cisma-dock", read(ROOT, "usr/bin/cisma-start"))
         self.assertTrue(os.access(DOCK, os.X_OK) or os.name != "posix")
 
     def test_layout_tem_os_ids_que_o_editor_usa_no_padrao(self):
-        layout = read(ROOT, "usr/share/mate-panel/layouts/andrey.layout")
+        layout = read(ROOT, "usr/share/mate-panel/layouts/cisma.layout")
         src = read(DOCK)
         for oid in ("bottom-grid", "bottom-browser", "bottom-terminal", "bottom-files", "bottom-settings", "bottom-separator",
                     "bottom-trash", "bottom-power"):
@@ -70,7 +70,7 @@ class DockEstatico(unittest.TestCase):
                 fh.write(old)
             env = dict(os.environ, XDG_CONFIG_HOME=d)
             for _ in range(2):   # idempotente
-                subprocess.run(["bash", os.path.join(ROOT, "usr/lib/andrey-os/migrations/0.4.0.sh")], env=env, check=True)
+                subprocess.run(["bash", os.path.join(ROOT, "usr/lib/cisma-os/migrations/0.4.0.sh")], env=env, check=True)
             new = read(f)
             self.assertNotIn("PanelToplevel,", new)
             self.assertIn("meu-ajuste { color: red; }", new)   # o que a pessoa personalizou fica
@@ -102,16 +102,16 @@ class DockPrograma(unittest.TestCase):
         base = self.items()
         self.assertEqual([t for t, _ in base][:5], ["launcher"] * 5)
         self.assertEqual(base[-1], ["action", "shutdown"])
-        self.run_dock("--add", "andrey-code.desktop")
+        self.run_dock("--add", "cisma-code.desktop")
         it = self.items()
-        self.assertIn(["launcher", "andrey-code.desktop"], it)
+        self.assertIn(["launcher", "cisma-code.desktop"], it)
         # o app novo entra depois do ultimo lancador, antes do separador e da lixeira
-        self.assertEqual(it.index(["launcher", "andrey-code.desktop"]), 5)
+        self.assertEqual(it.index(["launcher", "cisma-code.desktop"]), 5)
         self.assertEqual(it[6][0], "separator")
-        self.assertIn("ja estava", self.run_dock("--add", "andrey-code.desktop").stdout)
-        self.assertEqual(self.run_dock("--has", "andrey-code.desktop").returncode, 0)
-        self.run_dock("--remove", "andrey-code.desktop")
-        self.assertEqual(self.run_dock("--has", "andrey-code.desktop", ok=False).returncode, 1)
+        self.assertIn("ja estava", self.run_dock("--add", "cisma-code.desktop").stdout)
+        self.assertEqual(self.run_dock("--has", "cisma-code.desktop").returncode, 0)
+        self.run_dock("--remove", "cisma-code.desktop")
+        self.assertEqual(self.run_dock("--has", "cisma-code.desktop", ok=False).returncode, 1)
         self.assertEqual(self.items(), base)
 
     def test_fundo_transparente(self):

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=AntiCheat Mode (VFIO)
+GenericName=Assistente de VM Windows com GPU dedicada
+Comment=Diagnostique VFIO e configure uma VM Windows com Looking Glass
+Exec=cisma-anticheat-mode
+Icon=computer
+Terminal=false
+Categories=System;Settings;Game;
+Keywords=vfio;looking glass;virtual machine;qemu;kvm;anticheat;
+StartupNotify=true

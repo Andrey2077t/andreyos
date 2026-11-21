@@ -8,15 +8,15 @@ import sys
 import tempfile
 import unittest
 
-ROOT = os.path.join(os.path.dirname(__file__), "..", "pkg", "andrey-os-base", "root")
-sys.path.insert(0, os.path.join(ROOT, "usr", "lib", "andrey-os"))
-e = importlib.import_module("andrey_exe")
+ROOT = os.path.join(os.path.dirname(__file__), "..", "pkg", "cisma-os-base", "root")
+sys.path.insert(0, os.path.join(ROOT, "usr", "lib", "cisma-os"))
+e = importlib.import_module("cisma_exe")
 
 
 def load_cli():
-    path = os.path.join(ROOT, "usr", "bin", "andrey-exe")
-    loader = importlib.machinery.SourceFileLoader("andrey_exe_cli", path)
-    spec = importlib.util.spec_from_loader("andrey_exe_cli", loader)
+    path = os.path.join(ROOT, "usr", "bin", "cisma-exe")
+    loader = importlib.machinery.SourceFileLoader("cisma_exe_cli", path)
+    spec = importlib.util.spec_from_loader("cisma_exe_cli", loader)
     mod = importlib.util.module_from_spec(spec)
     loader.exec_module(mod)
     return mod
@@ -348,22 +348,22 @@ class IntegrationFilesTests(unittest.TestCase):
             return fh.read()
 
     def test_desktop_do_handler_declara_os_tipos_e_chama_o_script(self):
-        txt = self.read("usr", "share", "applications", "andrey-exe.desktop")
-        self.assertIn("Exec=andrey-exe %f", txt)
+        txt = self.read("usr", "share", "applications", "cisma-exe.desktop")
+        self.assertIn("Exec=cisma-exe %f", txt)
         mt = [ln for ln in txt.splitlines() if ln.startswith("MimeType=")][0]
         for t in self.TYPES:
             self.assertIn(t + ";", mt)
-        self.assertIn("Exec=andrey-exe --shortcut %f", self.read("usr", "share", "applications", "andrey-exe-shortcut.desktop"))
+        self.assertIn("Exec=cisma-exe --shortcut %f", self.read("usr", "share", "applications", "cisma-exe-shortcut.desktop"))
 
     def test_mimeapps_define_o_padrao_de_todos_os_tipos(self):
         lines = self.read("etc", "xdg", "mimeapps.list").splitlines()
         sect = lines[lines.index("[Default Applications]") + 1:lines.index("[Added Associations]")]
         defaults = dict(ln.split("=", 1) for ln in sect if "=" in ln)
         for t in self.TYPES:
-            self.assertEqual(defaults.get(t), "andrey-exe.desktop;", t)
+            self.assertEqual(defaults.get(t), "cisma-exe.desktop;", t)
 
     def test_session_setup_cobre_os_mesmos_tipos(self):
-        txt = self.read("usr", "lib", "andrey-os", "session-setup")
+        txt = self.read("usr", "lib", "cisma-os", "session-setup")
         for t in self.TYPES:
             self.assertIn(t, txt)
         self.assertIn("LEVEL=10", txt)

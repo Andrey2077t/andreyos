@@ -1,0 +1,6 @@
+#!/bin/sh
+# Abre/fecha o Menu Iniciar. Usa o D-Bus direto (rápido; o serviço inicia sozinho se não estiver rodando).
+# Se o D-Bus falhar, cai para o próprio cisma-start.
+gdbus call --session --dest org.cismaos.Start --object-path /org/cismaos/Start \
+     --method org.freedesktop.Application.ActivateAction toggle '[]' '{}' >/dev/null 2>&1 \
+  || exec cisma-start --toggle

@@ -1,6 +1,6 @@
 # ISO e saidas do live-build
 *.iso
-andrey-os-amd64.*
+cisma-os-amd64.*
 build.log
 out/
 chroot/
@@ -15,8 +15,8 @@ config/source
 config/bootloaders/
 
 # gerados pelo build.sh (a fonte unica fica em ui/ e pkg/)
-config/includes.chroot/usr/share/andrey-os/pkg/
-config/includes.chroot/usr/share/andrey-os/ui-src/
+config/includes.chroot/usr/share/cisma-os/pkg/
+config/includes.chroot/usr/share/cisma-os/ui-src/
 
 # chaves e caches
 pkg/keyring/*.secret

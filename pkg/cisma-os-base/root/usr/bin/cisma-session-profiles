@@ -1,0 +1,414 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""Perfis de sessão do Cisma OS: aplica um conjunto coerente de ajustes do desktop por usuário."""
+import importlib.machinery
+import importlib.util
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
+import time
+
+CONFIG_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.join(os.path.expanduser("~"), ".config")), "cisma-os")
+STATE_FILE = os.path.join(CONFIG_DIR, "session-profile.json")
+FOCUS_WALLPAPER = "/usr/share/backgrounds/cisma/cisma-os-focus.png"
+SETTINGS = {
+    "org.mate.background": ("picture-filename", "picture-options", "primary-color"),
+    "org.mate.interface": ("gtk-theme",),
+    "org.mate.Marco.general": ("compositing-manager",),
+    "org.gnome.desktop.notifications": ("show-banners",),
+}
+CHAT_TOKENS = ("discord", "telegram", "slack", "signal", "whatsapp", "element")
+DOCK_APPS = {
+    "focus": ("cisma-start.desktop", "firefox-esr.desktop", "cisma-music.desktop", "cisma-files.desktop"),
+    "competitive": ("cisma-start.desktop", "steam.desktop", "cisma-files.desktop"),
+    "dev": ("cisma-start.desktop", "cisma-code.desktop", "cisma-terminal.desktop", "firefox-esr.desktop", "cisma-files.desktop"),
+}
+PROFILES = {
+    "daily": ("Diário", "Restaura as configurações salvas antes da troca de perfil."),
+    "focus": ("Focus / Música", "Oculta banners de notificação compatíveis, reduz a barra de abas, minimiza apps de chat e abre o Cisma Music."),
+    "competitive": ("Competitive / Games", "Prioriza desempenho quando disponível, reduz composição e deixa o dock essencial. O modo anticheat fica separado."),
+    "dev": ("Dev / Code", "Abre Cisma Code, terminal e navegador e tenta organizar as janelas."),
+}
+
+
+def run(args, timeout=8):
+    try:
+        return subprocess.run(args, capture_output=True, text=True, timeout=timeout)
+    except (OSError, subprocess.SubprocessError):
+        return None
+
+
+def load_state():
+    try:
+        with open(STATE_FILE, encoding="utf-8") as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+def save_state(state):
+    os.makedirs(CONFIG_DIR, mode=0o700, exist_ok=True)
+    tmp = STATE_FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(state, fh, ensure_ascii=False, indent=2)
+    os.chmod(tmp, 0o600)
+    os.replace(tmp, STATE_FILE)
+
+
+def settings_objects():
+    from gi.repository import Gio, GLib
+    result = {}
+    source = Gio.SettingsSchemaSource.get_default()
+    for schema, keys in SETTINGS.items():
+        found = source.lookup(schema, True) if source else None
+        if not found:
+            continue
+        settings = Gio.Settings.new(schema)
+        for key in keys:
+            if found.has_key(key):
+                result[(schema, key)] = (settings, GLib.Variant)
+    return result
+
+
+def read_settings():
+    result = {}
+    try:
+        for (schema, key), (settings, _) in settings_objects().items():
+            result[schema + "|" + key] = settings.get_value(key).print_(True)
+    except Exception:
+        pass
+    return result
+
+
+def set_settings(values):
+    try:
+        from gi.repository import Gio, GLib
+        objects = settings_objects()
+        for name, printed in values.items():
+            schema, key = name.split("|", 1)
+            pair = objects.get((schema, key))
+            if not pair:
+                continue
+            settings, _ = pair
+            variant = GLib.Variant.parse(settings.get_value(key).get_type(), printed, None, None)
+            settings.set_value(key, variant)
+        Gio.Settings.sync()
+    except Exception:
+        pass
+
+
+def dock_module():
+    path = "/usr/bin/cisma-dock"
+    loader = importlib.machinery.SourceFileLoader("cisma_dock_session", path)
+    spec = importlib.util.spec_from_loader(loader.name, loader)
+    module = importlib.util.module_from_spec(spec)
+    loader.exec_module(module)
+    return module
+
+
+def set_dock(items):
+    try:
+        dock_module().save_items(items)
+    except Exception:
+        pass
+
+
+def profile_dock(profile):
+    if profile == "daily":
+        return
+    try:
+        dock = dock_module()
+        current = dock.list_items()
+        available = {app.get_id() for app in dock.Gio.AppInfo.get_all() if app.get_id()}
+        items = []
+        for desktop in DOCK_APPS[profile]:
+            if desktop in available:
+                items.append(dock.new_launcher(items, desktop))
+        if profile == "focus":
+            items.append(dock.new_separator(items))
+            items.extend(i for i in current if i["type"] in ("applet", "action"))
+        elif profile == "competitive":
+            items.extend(i for i in current if i["type"] == "action" and i.get("action") == "shutdown")
+        else:
+            items.extend(i for i in current if i["type"] == "action" and i.get("action") == "shutdown")
+        if items:
+            dock.save_items(items)
+    except Exception:
+        pass
+
+
+def window_rows():
+    result = run(["wmctrl", "-l", "-x"])
+    return result.stdout.splitlines() if result and result.returncode == 0 else []
+
+
+def minimize_chats():
+    hidden = []
+    for row in window_rows():
+        parts = row.split(None, 4)
+        if len(parts) < 4:
+            continue
+        xid, klass = parts[0], parts[3].lower()
+        if any(token in klass for token in CHAT_TOKENS):
+            if run(["wmctrl", "-ir", xid, "-b", "add,hidden"]):
+                hidden.append(xid)
+    return hidden
+
+
+def restore_windows(ids):
+    for xid in ids or []:
+        run(["wmctrl", "-ir", str(xid), "-b", "remove,hidden"])
+
+
+def dnd_status():
+    result = run(["gdbus", "call", "--session", "--dest", "org.freedesktop.Notifications",
+                  "--object-path", "/org/freedesktop/Notifications",
+                  "--method", "org.freedesktop.Notifications.GetInhibited"])
+    if not result or result.returncode != 0:
+        return None
+    if "true" in result.stdout.lower():
+        return True
+    if "false" in result.stdout.lower():
+        return False
+    return None
+
+
+def dnd_inhibit():
+    result = run(["gdbus", "call", "--session", "--dest", "org.freedesktop.Notifications",
+                  "--object-path", "/org/freedesktop/Notifications",
+                  "--method", "org.freedesktop.Notifications.Inhibit", "Cisma OS", "Perfil de sessão"])
+    if not result or result.returncode != 0:
+        return None
+    match = re.search(r"(?:uint32|uint)\s+(\d+)", result.stdout)
+    return int(match.group(1)) if match else None
+
+
+def dnd_uninhibit(cookie):
+    if cookie is None:
+        return
+    run(["gdbus", "call", "--session", "--dest", "org.freedesktop.Notifications",
+         "--object-path", "/org/freedesktop/Notifications",
+         "--method", "org.freedesktop.Notifications.UnInhibit", str(cookie)])
+
+
+def power_profile():
+    if not shutil.which("powerprofilesctl"):
+        return None
+    result = run(["powerprofilesctl", "get"])
+    return result.stdout.strip() if result and result.returncode == 0 else None
+
+
+def set_power(value):
+    if value and shutil.which("powerprofilesctl"):
+        run(["powerprofilesctl", "set", value])
+
+
+def boot_id():
+    try:
+        with open("/proc/sys/kernel/random/boot_id", encoding="ascii") as fh:
+            return fh.read().strip()
+    except OSError:
+        return ""
+
+
+def capture_baseline():
+    state = {"settings": read_settings(), "dock": [], "window_group": "off", "power": power_profile(),
+             "notifications_inhibited": dnd_status(), "inhibit_cookie": None, "hidden_windows": [],
+             "boot_id": boot_id()}
+    try:
+        state["dock"] = dock_module().list_items()
+    except Exception:
+        pass
+    result = run(["cisma-tabs", "--group", "status"])
+    if result and result.returncode == 0:
+        state["window_group"] = result.stdout.strip()
+    return state
+
+
+def ensure_baseline():
+    state = load_state()
+    if state is None:
+        state = capture_baseline()
+    state.setdefault("hidden_windows", [])
+    save_state(state)
+    return state
+
+
+def launch_if_missing(command, token):
+    if not any(token in row.lower() for row in window_rows()):
+        try:
+            subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        except OSError:
+            pass
+
+
+def arrange_dev_windows():
+    output = run(["xrandr", "--current"])
+    width, height = 1280, 800
+    if output:
+        for line in output.stdout.splitlines():
+            if " connected" in line:
+                import re
+                match = re.search(r"(\d+)x(\d+)\+\d+\+\d+", line)
+                if match:
+                    width, height = map(int, match.groups())
+                    break
+    work_h = max(400, height - 96)
+    specs = (("cismacode", 0, 32, width // 2, work_h), ("mate-terminal", width // 2, 32, width // 2, work_h // 2),
+             ("firefox", width // 2, 32 + work_h // 2, width // 2, work_h // 2))
+    for row in window_rows():
+        parts = row.split(None, 4)
+        if len(parts) < 4:
+            continue
+        xid, klass = parts[0], parts[3].lower()
+        for token, x, y, w, h in specs:
+            if token in klass:
+                run(["wmctrl", "-ir", xid, "-b", "remove,maximized_vert,maximized_horz"])
+                run(["wmctrl", "-ir", xid, "-e", "0,%d,%d,%d,%d" % (x, y, w, h)])
+                break
+
+
+def restore_daily(state):
+    set_settings(state.get("settings", {}))
+    set_dock(state.get("dock", []))
+    group = state.get("window_group")
+    if group in ("on", "off", "auto"):
+        run(["cisma-tabs", "--group", group])
+    dnd_uninhibit(state.get("inhibit_cookie"))
+    set_power(state.get("power"))
+    restore_windows(state.get("hidden_windows", []))
+    try:
+        os.unlink(STATE_FILE)
+    except OSError:
+        pass
+
+
+def apply(profile):
+    if profile not in PROFILES:
+        return 2
+    state = load_state()
+    if profile == "daily":
+        if state:
+            restore_daily(state)
+        return 0
+    state = ensure_baseline()
+    if state.get("boot_id") != boot_id():
+        state["hidden_windows"] = []
+        state["inhibit_cookie"] = None
+    state["boot_id"] = boot_id()
+    restore_windows(state.pop("hidden_windows", []))
+    set_settings(state.get("settings", {}))
+    state["hidden_windows"] = []
+
+    if profile in ("focus", "competitive"):
+        values = {}
+        try:
+            objects = settings_objects()
+            for name, printed in state.get("settings", {}).items():
+                schema, key = name.split("|", 1)
+                if schema == "org.gnome.desktop.notifications" and key == "show-banners":
+                    values[name] = "false"
+        except Exception:
+            pass
+        set_settings({**state.get("settings", {}), **values})
+        if state.get("notifications_inhibited") is False:
+            cookie = state.get("inhibit_cookie")
+            if cookie is None or dnd_status() is False:
+                state["inhibit_cookie"] = dnd_inhibit()
+        state["hidden_windows"] = minimize_chats()
+
+    if profile == "focus":
+        if os.path.isfile(FOCUS_WALLPAPER):
+            set_settings({"org.mate.background|picture-filename": "'" + FOCUS_WALLPAPER + "'",
+                          "org.mate.background|primary-color": "'#030002'",
+                          "org.mate.interface|gtk-theme": "'Adwaita-dark'"})
+        run(["cisma-tabs", "--group", "on"])
+        profile_dock(profile)
+        launch_if_missing(["cisma-music"], "cismamusic")
+    elif profile == "competitive":
+        set_power("performance")
+        set_settings({"org.mate.Marco.general|compositing-manager": "false"})
+        profile_dock(profile)
+    elif profile == "dev":
+        dnd_uninhibit(state.get("inhibit_cookie"))
+        state["inhibit_cookie"] = None
+        set_settings({"org.mate.interface|gtk-theme": "'Adwaita-dark'"})
+        profile_dock(profile)
+        launch_if_missing(["cisma-code"], "cismacode")
+        launch_if_missing(["mate-terminal"], "mate-terminal")
+        launch_if_missing(["firefox-esr"], "firefox")
+        time.sleep(2)
+        arrange_dev_windows()
+
+    state["active"] = profile
+    save_state(state)
+    return 0
+
+
+def selected_cli():
+    try:
+        with open(STATE_FILE, encoding="utf-8") as fh:
+            state = json.load(fh)
+        return state.get("active", "daily")
+    except (OSError, ValueError):
+        return "daily"
+
+
+def gui():
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk
+    win = Gtk.Window(title="Perfis de Sessão")
+    win.set_default_size(500, 470)
+    win.set_border_width(18)
+    win.set_icon_name("cisma-grid")
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+    win.add(box)
+    title = Gtk.Label(label="Escolha como quer usar o Cisma OS", xalign=0)
+    title.get_style_context().add_class("title-2")
+    box.pack_start(title, False, False, 2)
+    hint = Gtk.Label(label="A troca salva seu estado atual. Volte para Diário para restaurá-lo.", xalign=0)
+    hint.set_line_wrap(True)
+    box.pack_start(hint, False, False, 4)
+    active = selected_cli()
+    for key, (name, description) in PROFILES.items():
+        button = Gtk.Button()
+        button.set_relief(Gtk.ReliefStyle.NONE)
+        inner = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        inner.set_border_width(10)
+        label = Gtk.Label(label=("✓  " if key == active else "") + name, xalign=0)
+        label.get_style_context().add_class("heading")
+        detail = Gtk.Label(label=description, xalign=0)
+        detail.set_line_wrap(True)
+        inner.pack_start(label, False, False, 0)
+        inner.pack_start(detail, False, False, 0)
+        button.add(inner)
+        button.connect("clicked", lambda _b, p=key: (apply(p), win.destroy()))
+        box.pack_start(button, False, False, 0)
+    anti = Gtk.Button(label="Abrir assistente AntiCheat / VFIO…")
+    anti.connect("clicked", lambda *_: subprocess.Popen(["cisma-anticheat-mode"]))
+    box.pack_start(anti, False, False, 4)
+    win.connect("destroy", Gtk.main_quit)
+    win.show_all()
+    Gtk.main()
+
+
+def main(argv):
+    if len(argv) == 1 or argv[1] in ("--gui", "--help", "-h"):
+        gui()
+        return 0
+    if argv[1] == "--status":
+        print(selected_cli())
+        return 0
+    if argv[1] == "--profile" and len(argv) == 3:
+        return apply(argv[2])
+    print("Uso: cisma-session-profiles [--gui | --status | --profile daily|focus|competitive|dev]", file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

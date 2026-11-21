@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Atualizar Cisma OS
+Comment=Verifica e instala novas versões do Cisma OS
+Exec=cisma-update
+Icon=system-software-update
+Terminal=false
+Categories=System;Settings;

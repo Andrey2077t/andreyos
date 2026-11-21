@@ -1,18 +1,18 @@
 #!/bin/sh
 # Executar .exe com duplo clique: instala o umu-launcher (o launcher do Proton fora da Steam) e deixa o Proton-GE
 # dentro da ISO, para o primeiro .exe abrir sem instalar nada.
-# Roda depois do hook de jogos (0150: arquitetura i386 + Mesa 32 bits) e do andrey-os-base (0050: traz o andrey-exe,
-# o handler de .exe e o andrey_games.py, que este hook reaproveita para baixar o Proton-GE com SHA-512 conferido).
+# Roda depois do hook de jogos (0150: arquitetura i386 + Mesa 32 bits) e do cisma-os-base (0050: traz o cisma-exe,
+# o handler de .exe e o cisma_games.py, que este hook reaproveita para baixar o Proton-GE com SHA-512 conferido).
 #
 # Por que num hook e nao em config/package-lists: o umu-launcher nao esta nos repositorios do Debian; o projeto
 # publica o .deb para o Debian 13 nas releases do GitHub. O Proton-GE tambem so existe no GitHub.
-# Quem ja usa o sistema e nao reinstala a ISO: o andrey-exe cai no Wine puro (aviso) ate ter o umu-run.
+# Quem ja usa o sistema e nao reinstala a ISO: o cisma-exe cai no Wine puro (aviso) ate ter o umu-run.
 set -e
 export DEBIAN_FRONTEND=noninteractive
 
 UMU_API="https://api.github.com/repos/Open-Wine-Components/umu-launcher/releases/latest"
 UMU_PREFIX="https://github.com/Open-Wine-Components/umu-launcher/releases/download/"
-PROTON_DIR=/usr/share/andrey-os/proton
+PROTON_DIR=/usr/share/cisma-os/proton
 # Fallback fixo para quando a cota anonima da API do GitHub retorna 403.
 # Versao e hashes conferidos na pagina oficial da release; atualize juntos ao trocar a versao.
 UMU_FALLBACK_TAG=1.4.4
@@ -97,9 +97,9 @@ ok=0
 for i in 1 2 3; do
     if python3 -I -B - <<'PY'
 import sys
-sys.path.insert(0, "/usr/lib/andrey-os")
-import andrey_games as G
-G.install_proton_ge(dest="/usr/share/andrey-os/proton")
+sys.path.insert(0, "/usr/lib/cisma-os")
+import cisma_games as G
+G.install_proton_ge(dest="/usr/share/cisma-os/proton")
 PY
     then
         ok=1
@@ -120,13 +120,13 @@ if [ -z "$GE" ] || [ ! -f "$GE/proton" ] || [ ! -f "$GE/toolmanifest.vdf" ]; the
     echo "ERRO: Proton-GE incompleto em $PROTON_DIR (faltam 'proton' ou 'toolmanifest.vdf')." >&2
     exit 1
 fi
-for f in /usr/bin/andrey-exe /usr/lib/andrey-os/andrey_exe.py /usr/share/applications/andrey-exe.desktop \
-         /usr/share/applications/andrey-exe-shortcut.desktop /etc/xdg/mimeapps.list; do
-    [ -e "$f" ] || { echo "ERRO: $f ausente depois de instalar o andrey-os-base." >&2; exit 1; }
+for f in /usr/bin/cisma-exe /usr/lib/cisma-os/cisma_exe.py /usr/share/applications/cisma-exe.desktop \
+         /usr/share/applications/cisma-exe-shortcut.desktop /etc/xdg/mimeapps.list; do
+    [ -e "$f" ] || { echo "ERRO: $f ausente depois de instalar o cisma-os-base." >&2; exit 1; }
 done
-# o gatilho do dpkg (update-desktop-database) registra o handler; sem isso o .exe nao abriria com o andrey-exe
-grep -q 'andrey-exe.desktop' /usr/share/applications/mimeinfo.cache 2>/dev/null || \
-    echo "AVISO: andrey-exe.desktop nao apareceu no mimeinfo.cache (rode update-desktop-database)." >&2
+# o gatilho do dpkg (update-desktop-database) registra o handler; sem isso o .exe nao abriria com o cisma-exe
+grep -q 'cisma-exe.desktop' /usr/share/applications/mimeinfo.cache 2>/dev/null || \
+    echo "AVISO: cisma-exe.desktop nao apareceu no mimeinfo.cache (rode update-desktop-database)." >&2
 
 apt-get clean
 exit 0

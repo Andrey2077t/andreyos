@@ -1,0 +1,313 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""Executar programas do Windows no Cisma OS (umu-launcher + Proton-GE). É o programa padrão dos arquivos .exe.
+
+  cisma-exe ARQUIVO.exe [args]    duplo clique: detecta jogo/programa/instalador e abre com o Proton-GE
+                                   (na 1ª vez de cada arquivo pergunta se quer criar atalho)
+  cisma-exe --shortcut ARQUIVO    só cria o atalho (menu de aplicativos e/ou área de trabalho), sem executar
+  cisma-exe --info ARQUIVO        mostra o que foi detectado (não executa)
+  cisma-exe --check               relatório do umu-run e do Proton-GE
+  Opções ao executar: --kind game|app|installer   --prefix PASTA   --no-ask (não pergunta nada)
+  Para atalhos e scripts:  cisma-exe --no-ask --kind game --prefix PASTA -- ARQUIVO [args]
+
+Configuração opcional em ~/.config/cisma-os/exe.conf (ask=first|always|never, proton=, gamemode=on|off).
+"""
+import os
+import shutil
+import subprocess
+import sys
+import time
+import urllib.parse
+
+sys.path.insert(0, "/usr/lib/cisma-os")
+import cisma_exe as E  # noqa: E402
+
+TITLE = "Cisma OS - Programas do Windows"
+HAVE_GUI = bool(os.environ.get("DISPLAY") or os.environ.get("WAYLAND_DISPLAY"))
+QUICK_FAIL_SECONDS = 15
+
+
+def zenity(*args, text=None):
+    """(código, saída). Sem zenity ou sem tela devolve (1, '') e o programa segue sem perguntar."""
+    if not HAVE_GUI:
+        return 1, ""
+    try:
+        r = subprocess.run(["zenity", "--no-markup", "--title=" + TITLE, *args], capture_output=True, text=True,
+                           input=text)
+    except OSError:
+        return 1, ""
+    return r.returncode, r.stdout.strip()
+
+
+def say_error(msg):
+    print("Erro: " + msg, file=sys.stderr)
+    zenity("--error", "--width=440", "--text=" + msg)
+
+
+def normalize(arg):
+    if arg.startswith("file://"):
+        arg = urllib.parse.unquote(urllib.parse.urlparse(arg).path)
+    return os.path.abspath(os.path.expanduser(arg))
+
+
+# --------------------------------------------------------------------------- janelas
+def ask_run(name, kind, info, can_shortcut):
+    """Pergunta antes da 1ª execução. Devolve ('run'|'shortcut'|'cancel', tipo escolhido)."""
+    while True:
+        why = ", ".join(info["reasons"]) if kind == info["kind"] else "escolhido por você"
+        bits = " de %d bits" % info["bits"] if info["bits"] else ""
+        text = "%s\n\nTipo: %s%s (%s)\nVai abrir com o Proton-GE, num ambiente separado do resto do sistema." % (
+            name, E.KIND_LABEL[kind], bits, why)
+        if info.get("rufus"):
+            text = ("Rufus\n\nVai abrir com Wine em um prefixo separado. O Wine não será executado como root.\n"
+                    "A interface pode abrir, mas o acesso direto a discos/USB do Rufus não é garantido no Linux.")
+        if kind == "installer":
+            text += "\nQuando o instalador terminar, você poderá criar o atalho do programa instalado."
+        nxt = E.KINDS[(E.KINDS.index(kind) + 1) % len(E.KINDS)]
+        args = ["--question", "--width=480", "--text=" + text, "--ok-label=Executar", "--cancel-label=Cancelar"]
+        if can_shortcut:
+            args.append("--extra-button=Executar e criar atalho")
+        args.append("--extra-button=Trocar para " + E.KIND_LABEL[nxt])
+        rc, out = zenity(*args)
+        if rc == 0:
+            return "run", kind
+        if out == "Executar e criar atalho":
+            return "shortcut", kind
+        if out.startswith("Trocar para "):
+            kind = nxt
+            can_shortcut = kind != "installer"
+            continue
+        return "cancel", kind
+
+
+def shortcut_flow(path, kind, prefix, default_name=None):
+    """Pergunta nome e onde criar; cria o atalho. Sem janela (ou cancelado) não cria nada."""
+    name = default_name or E.display_name(path, kind)
+    rc, out = zenity("--entry", "--width=420", "--text=Nome do atalho:", "--entry-text=" + name)
+    if rc != 0 or not out.strip():
+        return []
+    name = out.strip()
+    rc, out = zenity("--list", "--checklist", "--width=420", "--height=260", "--text=Onde criar o atalho?",
+                     "--column= ", "--column=Local", "--hide-header", "TRUE", "Menu de aplicativos",
+                     "FALSE", "Área de trabalho")
+    if rc != 0 or not out:
+        return []
+    where = []
+    if "Menu de aplicativos" in out:
+        where.append("menu")
+    if "Área de trabalho" in out:
+        where.append("desktop")
+    made = E.write_shortcuts(name, kind, prefix, path, where)
+    if made:
+        E.notify("Atalho criado", name)
+    return made
+
+
+def offer_installed(prefix, before):
+    """Depois de um instalador: oferece atalho para o programa que apareceu no prefixo."""
+    new = E.new_programs(before, E.prefix_exes(prefix))
+    if not new or not HAVE_GUI:
+        return
+    if len(new) == 1:
+        chosen = new[0]
+        rc, _ = zenity("--question", "--width=440", "--ok-label=Criar atalho", "--cancel-label=Agora não",
+                       "--text=Instalação concluída.\n\nCriar atalho para %s?" % os.path.basename(chosen))
+        if rc != 0:
+            return
+    else:
+        rows = []
+        for n in new:
+            rows += [os.path.basename(n), n.split("drive_c", 1)[-1]]
+        rc, chosen_name = zenity("--list", "--width=620", "--height=380", "--column=Programa", "--column=Onde",
+                                 "--text=Instalação concluída. Para qual programa criar o atalho?", *rows)
+        if rc != 0 or not chosen_name:
+            return
+        chosen = next((n for n in new if os.path.basename(n) == chosen_name), None)
+        if not chosen:
+            return
+    info = E.classify(chosen)
+    kind = info["kind"] if info["kind"] != "installer" else "app"
+    shortcut_flow(chosen, kind, prefix)
+
+
+# --------------------------------------------------------------------------- execução
+def run(path, kind, prefix, info, args, conf):
+    rufus = info.get("rufus", False)
+    if rufus and os.geteuid() == 0:
+        say_error("Por segurança, não execute Rufus/Wine como root. Abra pelo Menu Iniciar ou pelo gerenciador de arquivos da sua sessão.")
+        return 1
+    umu = None if rufus else shutil.which("umu-run")
+    if rufus and not shutil.which("wine"):
+        say_error("Não encontrei o Wine necessário para abrir o Rufus. Atualize o Cisma OS ou rode 'cisma-games --repair'.")
+        return 1
+    if not rufus and not umu:
+        if not shutil.which("wine"):
+            say_error("Não encontrei o umu-run nem o Wine. Rode 'cisma-games --repair' ou atualize o Cisma OS.")
+            return 1
+        E.notify("umu-run não encontrado", "Abrindo com o Wine puro (sem Proton).")
+    elif rufus:
+        E.notify("Abrindo Rufus", "Wine em prefixo separado; operações de gravação USB podem não funcionar no Linux.")
+    proton = None if rufus else E.find_proton(conf)
+    cmd, env, cwd = E.build_run(path, kind, prefix, proton, args, umu=umu, appid=info.get("appid"),
+                                gamemode=not rufus and conf["gamemode"] == "on")
+    os.makedirs(prefix, exist_ok=True)
+    if rufus:
+        try:
+            E.configure_rufus_prefix(prefix)
+        except RuntimeError as e:
+            say_error(str(e))
+            return 1
+    lp = E.log_path()
+    os.makedirs(os.path.dirname(lp), exist_ok=True)
+    first = umu and not os.path.exists(E.first_run_marker())
+    if first:
+        E.notify("Preparando o Proton (só na 1ª vez)",
+                 "O Cisma OS baixa o ambiente do Proton agora. Precisa de internet e pode levar alguns minutos.")
+    else:
+        E.notify("Abrindo " + E.display_name(path, kind), "Proton-GE" if umu else "Wine")
+    t0 = time.time()
+    try:
+        with open(lp, "w", encoding="utf-8") as log:
+            log.write("$ %s\nPROTONPATH=%s WINEPREFIX=%s\n\n" % (" ".join(cmd), env.get("PROTONPATH", "-"), prefix))
+            log.flush()
+            rc = subprocess.call(cmd, env=env, cwd=cwd, stdout=log, stderr=subprocess.STDOUT)
+    except OSError as e:
+        say_error("Não consegui executar: %s" % e)
+        return 1
+    if rc == 0 and first:
+        try:
+            os.makedirs(E.state_dir(), exist_ok=True)
+            open(E.first_run_marker(), "w").close()
+        except OSError:
+            pass
+    if rc != 0 and time.time() - t0 < QUICK_FAIL_SECONDS:
+        code, out = zenity("--question", "--width=440", "--ok-label=Ver detalhes", "--cancel-label=Fechar",
+                           "--text=O programa fechou logo depois de abrir (código %d).\n\nSe é a 1ª vez, confira a internet: "
+                           "o Proton baixa arquivos na primeira execução." % rc)
+        if code == 0:
+            try:
+                with open(lp, encoding="utf-8", errors="replace") as fh:
+                    tail = "".join(fh.readlines()[-60:])
+            except OSError:
+                tail = ""
+            zenity("--text-info", "--width=720", "--height=420", "--font=monospace", text=tail)
+    return rc
+
+
+def usage():
+    print(__doc__)
+    return 0
+
+
+def parse(argv):
+    """Opções antes do arquivo; tudo depois do arquivo (ou de '--') vai para o programa."""
+    o = {"kind": None, "prefix": None, "no_ask": False, "shortcut": False, "info": False, "check": False,
+         "file": None, "args": []}
+    i = 0
+    while i < len(argv):
+        a = argv[i]
+        if a == "--":
+            if i + 1 < len(argv):
+                o["file"], o["args"] = argv[i + 1], argv[i + 2:]
+            break
+        if a in ("-h", "--help"):
+            return None
+        if a == "--no-ask":
+            o["no_ask"] = True
+        elif a == "--shortcut":
+            o["shortcut"] = True
+        elif a == "--info":
+            o["info"] = True
+        elif a == "--check":
+            o["check"] = True
+        elif a in ("--kind", "--prefix") and i + 1 < len(argv):
+            o[a[2:]] = argv[i + 1]
+            i += 1
+        elif a.startswith("-") and len(a) > 1 and o["file"] is None:
+            print("Opção desconhecida: " + a, file=sys.stderr)
+            return None
+        else:
+            o["file"], o["args"] = a, argv[i + 1:]
+            break
+        i += 1
+    if o["kind"] is not None and o["kind"] not in E.KINDS:
+        print("--kind precisa ser game, app ou installer", file=sys.stderr)
+        return None
+    return o
+
+
+def main(argv):
+    o = parse(argv)
+    if o is None:
+        return usage()
+    conf = E.load_conf()
+    if o["check"]:
+        print(E.render_report(E.diagnose(conf)))
+        return 0
+    if not o["file"]:
+        if not HAVE_GUI:
+            return usage()
+        zenity("--info", "--width=440",
+               "--text=Para abrir um programa do Windows, dê dois cliques no arquivo .exe (ou clique com o botão "
+               "direito > Abrir com > Executar com Proton).")
+        return 0
+
+    path = normalize(o["file"])
+    ext = os.path.splitext(path)[1].lower()
+    if not os.path.isfile(path):
+        say_error("Arquivo não encontrado: " + path)
+        return 1
+    if ext not in E.RUN_EXTS:
+        say_error("Esse arquivo (%s) não é um programa que abre sozinho. Só .exe, .msi e .bat.\n"
+                  "Arquivos .dll são bibliotecas usadas por outros programas." % (ext or "sem extensão"))
+        return 1
+    info = E.classify(path)
+    kind = o["kind"] or info["kind"]
+    if o["info"]:
+        runner = "Wine (Rufus)" if info.get("rufus") else E.find_proton(conf)
+        note = "\nnota    : a interface pode abrir; gravação direta em USB não é garantida no Linux" if info.get("rufus") else ""
+        print(("arquivo : %s\ntipo    : %s (%s)\nbits    : %s\nsteam id: %s\nprefixo : %s\nexecução: %s%s") % (
+            path, E.KIND_LABEL[kind], ", ".join(info["reasons"]), info["bits"] or "?", info["appid"] or "-",
+            o["prefix"] or E.prefix_for(kind, path, redist=info["redist"]), runner, note))
+        return 0
+
+    known = None if info.get("rufus") else E.known_entry(path)
+    if o["shortcut"]:
+        if known and not o["kind"]:
+            kind = known.get("kind", kind)
+        prefix = o["prefix"] or (known or {}).get("prefix") or E.prefix_for(kind, path, redist=info["redist"])
+        if not HAVE_GUI:
+            say_error("Criar atalho precisa de janela (sem tela disponível).")
+            return 1
+        shortcut_flow(path, kind, prefix)
+        return 0
+
+    want_shortcut = False
+    ask = (not o["no_ask"] and conf["ask"] != "never" and HAVE_GUI and (conf["ask"] == "always" or not known))
+    if known and not o["kind"] and not ask:
+        kind = known.get("kind", kind)       # já abriu antes: mantém o que a pessoa escolheu naquela vez
+    if ask:
+        choice, kind = ask_run(E.display_name(path, kind), kind, info, can_shortcut=kind != "installer")
+        if choice == "cancel":
+            return 0
+        want_shortcut = choice == "shortcut"
+    prefix = o["prefix"]
+    if not prefix and known and kind == known.get("kind"):
+        prefix = known.get("prefix")         # mesmo tipo de antes: continua no mesmo prefixo (dados e configurações)
+    prefix = prefix or E.prefix_for(kind, path, redist=info["redist"] and kind == "installer")
+
+    if want_shortcut:
+        shortcut_flow(path, kind, prefix)
+    before = E.prefix_exes(prefix) if kind == "installer" else set()
+    rc = run(path, kind, prefix, info, o["args"], conf)
+    try:
+        E.mark_known(path, kind, prefix)
+    except OSError:
+        pass
+    if kind == "installer":
+        offer_installed(prefix, before)
+    return rc
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

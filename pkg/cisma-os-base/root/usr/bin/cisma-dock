@@ -1,0 +1,516 @@
+#!/usr/bin/python3
+"""Editar dock: adiciona, remove e reordena os itens do dock de baixo e liga/desliga o fundo transparente.
+
+  cisma-dock                  abre a janela de edicao
+  cisma-dock --list           lista os itens do dock
+  cisma-dock --add APP.desktop     fixa um aplicativo no dock
+  cisma-dock --remove APP.desktop  tira um aplicativo do dock
+  cisma-dock --has APP.desktop     codigo 0 se o aplicativo ja esta no dock
+  cisma-dock --transparent on|off  fundo transparente (padrao: on)
+  cisma-dock --opacity N     opacidade do fundo (0 a 100; 0 transparente)
+  cisma-dock --size N         tamanho dos icones (32 a 96)
+  cisma-dock --reset          volta ao dock padrao
+  cisma-dock --apply-style    aplica o fundo padrao dos paineis (barra superior escura, dock transparente)
+
+Tudo vive nas configuracoes do mate-panel (gsettings), entao nao precisa de root.
+"""
+import os
+import re
+import sys
+import time
+
+from gi.repository import Gio, GLib
+
+DOCK = "bottom"
+TOP = "top"
+S_GEN, S_OBJ, S_TOP, S_BG = ("org.mate.panel", "org.mate.panel.object",
+                             "org.mate.panel.toplevel", "org.mate.panel.toplevel.background")
+SEP_W = 16                                    # largura do separador no layout padrao (os demais itens tem "size")
+DARK = ("#080203", 57671)                     # barra superior: o mesmo escuro translucido (88%) de sempre
+DEFAULT_ITEMS = [
+    {"id": "bottom-grid", "type": "launcher", "location": "cisma-start.desktop"},
+    {"id": "bottom-browser", "type": "launcher", "location": "firefox-esr.desktop"},
+    {"id": "bottom-terminal", "type": "launcher", "location": "cisma-terminal.desktop"},
+    {"id": "bottom-files", "type": "launcher", "location": "cisma-files.desktop"},
+    {"id": "bottom-settings", "type": "launcher", "location": "cisma-settings.desktop"},
+    {"id": "bottom-separator", "type": "separator"},
+    {"id": "bottom-trash", "type": "applet", "iid": "TrashAppletFactory::TrashApplet"},
+    {"id": "bottom-power", "type": "action", "action": "shutdown"},
+]
+ACTION_NAMES = {"shutdown": "Desligar", "logout": "Sair", "lock": "Bloquear tela", "run": "Executar", "search": "Buscar arquivos",
+                "screenshot": "Captura de tela", "force-quit": "Forçar encerramento"}
+
+
+# ---------------------------------------------------------------- acesso as configuracoes
+def _gen():
+    return Gio.Settings.new(S_GEN)
+
+
+def _obj(i):
+    return Gio.Settings.new_with_path(S_OBJ, "/org/mate/panel/objects/%s/" % i)
+
+
+def _top(i):
+    return Gio.Settings.new_with_path(S_TOP, "/org/mate/panel/toplevels/%s/" % i)
+
+
+def _bg(i):
+    return Gio.Settings.new_with_path(S_BG, "/org/mate/panel/toplevels/%s/background/" % i)
+
+
+def _sync():
+    Gio.Settings.sync()
+
+
+def icon_size():
+    return _top(DOCK).get_int("size") or 56
+
+
+def item_width(it, size):
+    return SEP_W if it["type"] == "separator" else size
+
+
+def list_items():
+    """Itens do dock, na ordem em que aparecem (pela posicao)."""
+    out = []
+    for oid in _gen().get_strv("object-id-list"):
+        o = _obj(oid)
+        if o.get_string("toplevel-id") != DOCK:
+            continue
+        out.append({"id": oid, "type": o.get_string("object-type"), "location": o.get_string("launcher-location"),
+                    "iid": o.get_string("applet-iid"), "action": o.get_string("action-type"), "pos": o.get_int("position")})
+    out.sort(key=lambda x: x["pos"])
+    return out
+
+
+def _write_item(it, pos):
+    o = _obj(it["id"])
+    o.set_string("object-type", it["type"])
+    o.set_string("toplevel-id", DOCK)
+    o.set_int("position", pos)
+    if it["type"] == "launcher":
+        o.set_string("launcher-location", it.get("location", ""))
+    elif it["type"] == "applet":
+        o.set_string("applet-iid", it.get("iid", ""))
+    elif it["type"] == "action":
+        o.set_string("action-type", it.get("action", "none"))
+
+
+def _pump(seconds):
+    ctx = GLib.MainContext.default()
+    end = time.time() + seconds
+    while time.time() < end:
+        while ctx.pending():
+            ctx.iteration(False)
+        time.sleep(0.02)
+
+
+def save_items(items, settle=0.5):
+    """Grava os itens (na ordem dada) e faz o painel recarregar o dock. Os itens saem da lista e voltam: assim o
+    mate-panel le as posicoes novas sem precisar reiniciar a barra superior."""
+    gen = _gen()
+    old = list_items()
+    old_ids = [i["id"] for i in old]
+    keep = [i for i in gen.get_strv("object-id-list") if i not in old_ids]
+    gen.set_strv("object-id-list", keep)
+    _sync()
+    _pump(settle)
+    new_ids = {i["id"] for i in items}
+    for i in old:
+        if i["id"] not in new_ids:
+            o = _obj(i["id"])
+            for k in o.props.settings_schema.list_keys():
+                o.reset(k)
+    size, pos = icon_size(), 0
+    for it in items:
+        _write_item(it, pos)
+        pos += item_width(it, size)
+    gen.set_strv("object-id-list", keep + [i["id"] for i in items])
+    _sync()
+
+
+def _unique_id(items, base):
+    base = re.sub(r"[^a-z0-9-]+", "-", base.lower()).strip("-") or "item"
+    taken = {i["id"] for i in items} | set(_gen().get_strv("object-id-list"))
+    cand, n = "bottom-" + base, 1
+    while cand in taken:
+        n += 1
+        cand = "bottom-%s-%d" % (base, n)
+    return cand
+
+
+def new_launcher(items, desktop):
+    return {"id": _unique_id(items, os.path.basename(desktop).replace(".desktop", "")), "type": "launcher", "location": desktop}
+
+
+def new_separator(items):
+    return {"id": _unique_id(items, "separator"), "type": "separator"}
+
+
+def insert_pos(items):
+    """Onde um app novo entra: depois do ultimo lancador, antes do separador/lixeira."""
+    last = -1
+    for n, it in enumerate(items):
+        if it["type"] == "launcher":
+            last = n
+    return last + 1
+
+
+def has(desktop):
+    want = os.path.basename(desktop)
+    return any(i["type"] == "launcher" and os.path.basename(i["location"]) == want for i in list_items())
+
+
+def add(desktop, settle=0.5):
+    if has(desktop):
+        return False
+    items = list_items()
+    items.insert(insert_pos(items), new_launcher(items, desktop))
+    save_items(items, settle)
+    return True
+
+
+def remove(desktop, settle=0.5):
+    want = os.path.basename(desktop)
+    items = list_items()
+    rest = [i for i in items if not (i["type"] == "launcher" and os.path.basename(i["location"]) == want)]
+    if len(rest) == len(items):
+        return False
+    save_items(rest, settle)
+    return True
+
+
+def reset(settle=0.5):
+    save_items([dict(i) for i in DEFAULT_ITEMS], settle)
+
+
+def set_size(n):
+    n = max(32, min(96, int(n)))
+    _top(DOCK).set_int("size", n)
+    _sync()
+
+
+# ---------------------------------------------------------------- fundo
+def _set_bg(toplevel, color, opacity):
+    b = _bg(toplevel)
+    b.set_string("color", color)
+    b.set_int("opacity", opacity)
+    b.set_string("type", "color")
+
+
+def set_transparent(on):
+    if on:
+        # O tipo "none" desliga o desenho do fundo do painel; opacity=0 em
+        # type=color depende do tema/compositor e em alguns MATE ainda aparece opaco.
+        b = _bg(DOCK)
+        b.set_string("type", "none")
+        b.set_int("opacity", 0)
+        b.set_string("color", "#000000")
+    else:
+        _set_bg(DOCK, *DARK)
+    _sync()
+
+
+def is_transparent():
+    b = _bg(DOCK)
+    return b.get_string("type") == "none" or (b.get_string("type") == "color" and b.get_int("opacity") == 0)
+
+
+def background_opacity():
+    """Opacidade atual do fundo, como porcentagem inteira de 0 a 100."""
+    b = _bg(DOCK)
+    if b.get_string("type") == "none":
+        return 0
+    return max(0, min(100, round(b.get_int("opacity") * 100 / 65535)))
+
+
+def set_background_opacity(percent):
+    """Define transparência (0) ou o fundo escuro com a opacidade escolhida (1–100)."""
+    percent = max(0, min(100, int(percent)))
+    b = _bg(DOCK)
+    b.set_string("color", DARK[0] if percent else "#000000")
+    b.set_int("opacity", round(percent * 65535 / 100))
+    b.set_string("type", "none" if percent == 0 else "color")
+    _sync()
+
+
+def apply_style():
+    _set_bg(TOP, *DARK)
+    b = _bg(DOCK)
+    b.set_string("type", "none")
+    b.set_int("opacity", 0)
+    b.set_string("color", "#000000")
+    _sync()
+
+
+# ---------------------------------------------------------------- nomes e icones
+def describe(it):
+    """(nome, icone) de um item para mostrar na lista."""
+    if it["type"] == "launcher":
+        info = None
+        try:   # o .desktop pode nao existir mais (app desinstalado): o construtor devolve NULL
+            if it["location"].startswith("/"):
+                info = Gio.DesktopAppInfo.new_from_filename(it["location"])
+            elif it["location"]:
+                info = Gio.DesktopAppInfo.new(os.path.basename(it["location"]))
+        except TypeError:
+            info = None
+        if info is not None:
+            return info.get_display_name(), info.get_icon()
+        return os.path.basename(it["location"]) or "?", None
+    if it["type"] == "separator":
+        return "— separador —", None
+    if it["type"] == "applet":
+        return ("Lixeira" if "Trash" in it.get("iid", "") else it.get("iid", "applet").split("::")[-1]), Gio.ThemedIcon.new("user-trash")
+    if it["type"] == "action":
+        return ACTION_NAMES.get(it.get("action", ""), it.get("action", "ação")), Gio.ThemedIcon.new("system-shutdown")
+    return it["type"], None
+
+
+# ---------------------------------------------------------------- janela
+def gui():
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gtk
+
+    css = Gtk.CssProvider()
+    css.load_from_data(b"""
+    window, dialog, .view { background: #0b0306; color: #ededf0; }
+    treeview { background: #12060a; color: #ededf0; }
+    treeview:selected { background: #ed1226; color: #fff; }
+    button { background: #1c0a10; color: #ededf0; border: 1px solid #3a1018; padding: 6px 12px; }
+    button:hover { border-color: #ed1226; }
+    button.suggested-action { background: #ed1226; color: #fff; }
+    label.hint { color: #9a8f93; }
+    """)
+    Gtk.StyleContext.add_provider_for_screen(__import__("gi.repository.Gdk", fromlist=["Gdk"]).Screen.get_default(), css,
+                                             Gtk.STYLE_PROVIDER_PRIORITY_USER)
+    state = {"items": list_items(), "dirty": False}
+
+    win = Gtk.Window(title="Editar dock")
+    win.set_default_size(460, 560)
+    win.set_icon_name("cisma-grid")
+    root = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+    root.set_border_width(14)
+    win.add(root)
+    hint = Gtk.Label(label="Monte o dock do seu jeito. As mudanças só valem quando você clicar em Aplicar.", xalign=0)
+    hint.get_style_context().add_class("hint")
+    hint.set_line_wrap(True)
+    root.pack_start(hint, False, False, 0)
+
+    store = Gtk.ListStore(object, str, Gio.Icon)
+    view = Gtk.TreeView(model=store)
+    view.set_headers_visible(False)
+    view.set_reorderable(True)
+    pix = Gtk.CellRendererPixbuf()
+    pix.set_property("stock-size", Gtk.IconSize.LARGE_TOOLBAR)
+    col = Gtk.TreeViewColumn()
+    col.pack_start(pix, False)
+    col.add_attribute(pix, "gicon", 2)
+    txt = Gtk.CellRendererText()
+    txt.set_property("xpad", 8)
+    col.pack_start(txt, True)
+    col.add_attribute(txt, "text", 1)
+    view.append_column(col)
+    sc = Gtk.ScrolledWindow()
+    sc.set_shadow_type(Gtk.ShadowType.IN)
+    sc.add(view)
+    root.pack_start(sc, True, True, 0)
+
+    def refill(select=None):
+        store.clear()
+        for it in state["items"]:
+            n, ic = describe(it)
+            store.append([it, n, ic])
+        if select is not None and 0 <= select < len(store):
+            view.get_selection().select_path(Gtk.TreePath(select))
+
+    def sync_from_store():
+        state["items"] = [r[0] for r in store]
+
+    def sel():
+        m, it = view.get_selection().get_selected()
+        return m.get_path(it).get_indices()[0] if it else -1
+
+    def changed(*_):
+        state["dirty"] = True
+
+    store.connect("row-inserted", lambda *a: None)
+    store.connect("rows-reordered", changed)
+    store.connect("row-deleted", lambda *a: (sync_from_store(), changed()))
+
+    bar = Gtk.Box(spacing=6)
+    root.pack_start(bar, False, False, 0)
+
+    def mk(label, fn):
+        b = Gtk.Button(label=label)
+        b.connect("clicked", lambda *_: fn())
+        bar.pack_start(b, False, False, 0)
+        return b
+
+    def move(d):
+        i = sel()
+        sync_from_store()
+        j = i + d
+        if i < 0 or not (0 <= j < len(state["items"])):
+            return
+        state["items"][i], state["items"][j] = state["items"][j], state["items"][i]
+        changed()
+        refill(j)
+
+    def remove_sel():
+        i = sel()
+        sync_from_store()
+        if i < 0:
+            return
+        del state["items"][i]
+        changed()
+        refill(min(i, len(state["items"]) - 1))
+
+    def add_app():
+        sync_from_store()
+        dlg = Gtk.Dialog(title="Adicionar ao dock", transient_for=win, modal=True)
+        dlg.set_default_size(420, 480)
+        dlg.add_buttons("Cancelar", Gtk.ResponseType.CANCEL, "Adicionar", Gtk.ResponseType.OK)
+        box = dlg.get_content_area()
+        box.set_spacing(8)
+        box.set_border_width(10)
+        entry = Gtk.SearchEntry()
+        box.pack_start(entry, False, False, 0)
+        ls = Gtk.ListStore(str, str, Gio.Icon)
+        for a in sorted((a for a in Gio.AppInfo.get_all() if a.should_show() and a.get_id()),
+                        key=lambda a: a.get_display_name().lower()):
+            ls.append([a.get_display_name(), a.get_id(), a.get_icon()])
+        flt = ls.filter_new()
+        flt.set_visible_func(lambda m, i, _d: entry.get_text().lower() in m[i][0].lower())
+        entry.connect("search-changed", lambda *_: flt.refilter())
+        tv = Gtk.TreeView(model=flt)
+        tv.set_headers_visible(False)
+        c = Gtk.TreeViewColumn()
+        p = Gtk.CellRendererPixbuf()
+        c.pack_start(p, False)
+        c.add_attribute(p, "gicon", 2)
+        t = Gtk.CellRendererText()
+        t.set_property("xpad", 8)
+        c.pack_start(t, True)
+        c.add_attribute(t, "text", 0)
+        tv.append_column(c)
+        s2 = Gtk.ScrolledWindow()
+        s2.add(tv)
+        box.pack_start(s2, True, True, 0)
+        tv.connect("row-activated", lambda *_: dlg.response(Gtk.ResponseType.OK))
+        dlg.show_all()
+        if dlg.run() == Gtk.ResponseType.OK:
+            m, it = tv.get_selection().get_selected()
+            if it:
+                did = m[it][1]
+                if not any(x["type"] == "launcher" and os.path.basename(x["location"]) == did for x in state["items"]):
+                    state["items"].insert(insert_pos(state["items"]), new_launcher(state["items"], did))
+                    changed()
+                    refill(insert_pos(state["items"]) - 1)
+        dlg.destroy()
+
+    def add_sep():
+        sync_from_store()
+        state["items"].insert(max(0, sel() + 1) if sel() >= 0 else len(state["items"]), new_separator(state["items"]))
+        changed()
+        refill()
+
+    mk("▲", lambda: move(-1))
+    mk("▼", lambda: move(1))
+    mk("Adicionar app…", add_app)
+    mk("Separador", add_sep)
+    mk("Remover", remove_sel)
+
+    opts = Gtk.Box(spacing=10)
+    root.pack_start(opts, False, False, 0)
+    opts.pack_start(Gtk.Label(label="Opacidade do fundo", xalign=0), False, False, 0)
+    opacity = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0, 100, 1)
+    opacity.set_value(background_opacity())
+    opacity.set_digits(0)
+    opacity.set_draw_value(True)
+    opacity.set_hexpand(True)
+    opacity.set_tooltip_text("0% deixa o dock transparente; 100% usa fundo opaco")
+    opts.pack_start(opacity, True, True, 0)
+    opts.pack_start(Gtk.Label(label="   Tamanho dos ícones", xalign=0), False, False, 0)
+    spin = Gtk.SpinButton.new_with_range(32, 96, 4)
+    spin.set_value(icon_size())
+    opts.pack_start(spin, False, False, 0)
+
+    foot = Gtk.Box(spacing=6)
+    root.pack_start(foot, False, False, 0)
+    status = Gtk.Label(label="", xalign=0)
+    status.get_style_context().add_class("hint")
+
+    def do_reset():
+        state["items"] = [dict(i) for i in DEFAULT_ITEMS]
+        changed()
+        refill()
+
+    def do_apply():
+        sync_from_store()
+        set_background_opacity(opacity.get_value())
+        if int(spin.get_value()) != icon_size():
+            set_size(int(spin.get_value()))
+        save_items(state["items"], 0.4)
+        state["dirty"] = False
+        status.set_text("Dock atualizado.")
+
+    rb = Gtk.Button(label="Restaurar padrão")
+    rb.connect("clicked", lambda *_: do_reset())
+    foot.pack_start(rb, False, False, 0)
+    foot.pack_start(status, True, True, 8)
+    ab = Gtk.Button(label="Aplicar")
+    ab.get_style_context().add_class("suggested-action")
+    ab.connect("clicked", lambda *_: do_apply())
+    cb = Gtk.Button(label="Fechar")
+    cb.connect("clicked", lambda *_: win.close())
+    foot.pack_end(cb, False, False, 0)
+    foot.pack_end(ab, False, False, 0)
+
+    win.connect("destroy", Gtk.main_quit)
+    refill(0)
+    win.show_all()
+    Gtk.main()
+
+
+# ---------------------------------------------------------------- linha de comando
+def main(argv):
+    if not argv:
+        gui()
+        return 0
+    a = argv[0]
+    try:
+        if a in ("-h", "--help"):
+            print(__doc__)
+        elif a == "--list":
+            for i in list_items():
+                print(i["type"], i["location"] or i["iid"] or i["action"], sep="\t")
+        elif a == "--add" and len(argv) > 1:
+            print("adicionado" if add(argv[1]) else "ja estava no dock")
+        elif a == "--remove" and len(argv) > 1:
+            print("removido" if remove(argv[1]) else "nao estava no dock")
+        elif a == "--has" and len(argv) > 1:
+            return 0 if has(argv[1]) else 1
+        elif a == "--transparent" and len(argv) > 1 and argv[1] in ("on", "off"):
+            set_transparent(argv[1] == "on")
+        elif a == "--opacity" and len(argv) > 1 and argv[1].isdigit():
+            set_background_opacity(argv[1])
+        elif a == "--size" and len(argv) > 1:
+            set_size(argv[1])
+            save_items(list_items())
+        elif a == "--reset":
+            reset()
+        elif a == "--apply-style":
+            apply_style()
+        else:
+            print(__doc__, file=sys.stderr)
+            return 2
+    except GLib.Error as e:
+        print("cisma-dock: %s" % e.message, file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Configurações
+Exec=mate-control-center
+Icon=cisma-settings
+Terminal=false
+NoDisplay=true
+Categories=Utility;

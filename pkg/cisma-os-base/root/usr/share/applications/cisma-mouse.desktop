@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Corrigir roda do mouse
+GenericName=Diagnóstico do mouse
+Comment=Bloqueia temporariamente a rolagem de um mouse com eventos involuntários
+Exec=cisma-mouse
+Icon=input-mouse
+Terminal=false
+Categories=Settings;HardwareSettings;
+Keywords=mouse;roda;rolagem;scroll;rolando sozinho;corrigir;

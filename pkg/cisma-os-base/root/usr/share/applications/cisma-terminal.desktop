@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Terminal
+Exec=mate-terminal
+Icon=cisma-terminal
+Terminal=false
+NoDisplay=true
+Categories=Utility;

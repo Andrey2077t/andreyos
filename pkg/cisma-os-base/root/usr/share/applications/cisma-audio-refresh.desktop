@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Atualizar dispositivos de áudio
+Comment=Redetecta entradas e saídas de áudio sem reiniciar o computador
+Exec=cisma-audio-heal --refresh
+Icon=audio-card
+Terminal=true
+Categories=Settings;HardwareSettings;

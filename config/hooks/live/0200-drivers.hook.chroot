@@ -9,7 +9,7 @@ for pkg in firmware-linux firmware-misc-nonfree intel-microcode amd64-microcode 
         exit 1
     fi
 done
-for f in /usr/bin/andrey-drivers /usr/lib/andrey-os/drivers-helper /usr/lib/andrey-os/andrey_drivers.py; do
-    [ -e "$f" ] || { echo "ERRO: $f ausente depois de instalar o andrey-os-base." >&2; exit 1; }
+for f in /usr/bin/cisma-drivers /usr/lib/cisma-os/drivers-helper /usr/lib/cisma-os/cisma_drivers.py; do
+    [ -e "$f" ] || { echo "ERRO: $f ausente depois de instalar o cisma-os-base." >&2; exit 1; }
 done
 exit 0

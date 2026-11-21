@@ -5,8 +5,8 @@ import sys
 import tempfile
 import unittest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "pkg", "andrey-os-base", "root", "usr", "lib", "andrey-os"))
-import andrey_search as s  # noqa: E402
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "pkg", "cisma-os-base", "root", "usr", "lib", "cisma-os"))
+import cisma_search as s  # noqa: E402
 
 
 class CalcTests(unittest.TestCase):

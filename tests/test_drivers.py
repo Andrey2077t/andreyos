@@ -7,9 +7,9 @@ import sys
 import tempfile
 import unittest
 
-LIB = os.path.join(os.path.dirname(__file__), "..", "pkg", "andrey-os-base", "root", "usr", "lib", "andrey-os")
+LIB = os.path.join(os.path.dirname(__file__), "..", "pkg", "cisma-os-base", "root", "usr", "lib", "cisma-os")
 sys.path.insert(0, LIB)
-import andrey_drivers as d  # noqa: E402
+import cisma_drivers as d  # noqa: E402
 
 NV_DETECT = """Detected NVIDIA GPUs:
 01:00.0 VGA compatible controller [0300]: NVIDIA Corporation GP107 [GeForce GTX 1050 Ti] [10de:1c82] (rev a1)
@@ -51,7 +51,7 @@ class NvidiaDetectTests(unittest.TestCase):
 
 
 class PlanTests(unittest.TestCase):
-    def test_intel_igpu_na_maquina_do_andrey(self):
+    def test_intel_igpu_na_maquina_do_cisma(self):
         p = plan([dev("0000:00:02.0", "8086", "0152", "0300")])
         self.assertIn("gpu-intel", ids(p))
         gpu = next(i for i in p if i["id"] == "gpu-intel")
@@ -161,7 +161,7 @@ class BluetoothTests(unittest.TestCase):
 
     def test_sem_controlador_traz_dica_de_reparo(self):
         p = d.build_plan([], "GenuineIntel", "none", set(), lambda x: True, bt_usb=BT, bt_ctrl=False)
-        self.assertIn("andrey-bluetooth --fix", next(i for i in p if i["id"] == "bluetooth")["note"])
+        self.assertIn("cisma-bluetooth --fix", next(i for i in p if i["id"] == "bluetooth")["note"])
 
     def test_pacotes_do_bluetooth_passam_na_lista_do_helper(self):
         bad = [p for p in d.BT_PACKAGES if not HelperAllow.allows(p)]
@@ -271,7 +271,7 @@ class HelperAllowlistTests(unittest.TestCase):
             self.assertTrue(HelperAllow.allows(p), p)
 
     def test_recusa(self):
-        for p in ("bash", "openssh-server", "netcat-traditional", "andrey-os-base", "-oAPT::Foo=1", "nvidia-x;rm",
+        for p in ("bash", "openssh-server", "netcat-traditional", "cisma-os-base", "-oAPT::Foo=1", "nvidia-x;rm",
                   "Firmware-linux", "", "bash:i386", "nvidia-driver:i386", "libgl1-mesa-dri:amd64", "firmware-linux nvidia-driver", "../etc/passwd"):
             self.assertFalse(HelperAllow.allows(p), repr(p))
 

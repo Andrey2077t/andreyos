@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Testes do andrey-keys.apply() sem GTK/MATE (Gio e Gdk trocados por dublês).   Rode: python3 -m unittest discover -s tests"""
+"""Testes do cisma-keys.apply() sem GTK/MATE (Gio e Gdk trocados por dublês).   Rode: python3 -m unittest discover -s tests"""
 import importlib.machinery
 import importlib.util
 import os
@@ -7,8 +7,8 @@ import sys
 import types
 import unittest
 
-ROOT = os.path.join(os.path.dirname(__file__), "..", "pkg", "andrey-os-base", "root")
-KEYS = os.path.join(ROOT, "usr", "bin", "andrey-keys")
+ROOT = os.path.join(os.path.dirname(__file__), "..", "pkg", "cisma-os-base", "root")
+KEYS = os.path.join(ROOT, "usr", "bin", "cisma-keys")
 
 
 class FakeSettings:
@@ -49,7 +49,7 @@ def load_keys():
     saved = {k: sys.modules.get(k) for k in ("gi", "gi.repository")}
     sys.modules["gi"], sys.modules["gi.repository"] = gi, rep
     try:
-        loader = importlib.machinery.SourceFileLoader("andrey_keys_under_test", KEYS)
+        loader = importlib.machinery.SourceFileLoader("cisma_keys_under_test", KEYS)
         spec = importlib.util.spec_from_loader(loader.name, loader)
         mod = importlib.util.module_from_spec(spec)
         loader.exec_module(mod)
@@ -87,23 +87,23 @@ class ApplyTests(unittest.TestCase):
                 self.assertEqual(self.binding(slug), "", slug)      # estes travariam a tecla
             else:
                 self.assertEqual(self.binding(slug), b, slug)       # estes não dependem do Super
-        self.assertEqual(self.binding("andrey-vol-up"), "XF86AudioRaiseVolume")
+        self.assertEqual(self.binding("cisma-vol-up"), "XF86AudioRaiseVolume")
 
     def test_sem_super_limpa_atalhos_com_super_que_ja_existiam(self):
         self.k.super_ok = lambda: True
         self.k.apply()
         self.k.super_ok = lambda: False
         self.k.apply()
-        self.assertEqual(self.binding("andrey-files"), "")
-        self.assertEqual(self.binding("andrey-vol-down"), "XF86AudioLowerVolume")
+        self.assertEqual(self.binding("cisma-files"), "")
+        self.assertEqual(self.binding("cisma-vol-down"), "XF86AudioLowerVolume")
 
     def test_nao_pisa_no_atalho_personalizado(self):
         self.k.super_ok = lambda: True
-        FakeSettings.store[self.k.BASE + "andrey-files/"] = {"binding": "<Control>e"}
+        FakeSettings.store[self.k.BASE + "cisma-files/"] = {"binding": "<Control>e"}
         self.k.apply()
-        self.assertEqual(self.binding("andrey-files"), "<Control>e")
+        self.assertEqual(self.binding("cisma-files"), "<Control>e")
         self.k.apply(force=True)
-        self.assertEqual(self.binding("andrey-files"), "<Super>e")
+        self.assertEqual(self.binding("cisma-files"), "<Super>e")
 
 
 class TabShortcutsTests(unittest.TestCase):
@@ -116,15 +116,15 @@ class TabShortcutsTests(unittest.TestCase):
         self.k.super_ok = lambda: True
 
     def old_tab(self, i, action=None):
-        FakeSettings.store[self.k.BASE + "andrey-tab-%d/" % i] = {
-            "name": "Ir para a aba %d" % i, "binding": "<Control>%d" % i, "action": action or "andrey-tabs %d" % i}
+        FakeSettings.store[self.k.BASE + "cisma-tab-%d/" % i] = {
+            "name": "Ir para a aba %d" % i, "binding": "<Control>%d" % i, "action": action or "cisma-tabs %d" % i}
 
     def entry(self, i):
-        return FakeSettings.store.get(self.k.BASE + "andrey-tab-%d/" % i, {})
+        return FakeSettings.store.get(self.k.BASE + "cisma-tab-%d/" % i, {})
 
     def test_apply_nao_cria_ctrl_numero(self):
         self.k.apply()
-        self.assertFalse([s for s, d in FakeSettings.store.items() if "andrey-tab-" in s and d])   # nada gravado
+        self.assertFalse([s for s, d in FakeSettings.store.items() if "cisma-tab-" in s and d])   # nada gravado
         self.assertFalse([b for _s, _n, b, _a in self.k.CUSTOM if b.startswith("<Control>") and b[-1].isdigit()])
 
     def test_apply_remove_os_atalhos_globais_antigos(self):
@@ -140,7 +140,7 @@ class TabShortcutsTests(unittest.TestCase):
         self.assertEqual(self.entry(4), {})
 
     def test_nao_mexe_no_que_voce_trocou(self):
-        self.old_tab(2, action="meu-script --aba 2")          # personalizado: não chama o andrey-tabs
+        self.old_tab(2, action="meu-script --aba 2")          # personalizado: não chama o cisma-tabs
         self.old_tab(3)
         self.assertEqual(self.k.drop_tab_shortcuts(), 1)
         self.assertEqual(self.entry(2)["action"], "meu-script --aba 2")
@@ -208,14 +208,14 @@ class SanitizeTests(unittest.TestCase):
         self.k.fix_super = lambda: calls.append("fix") or state.update(ok=True) or True
         self.assertEqual(self.k.apply(), 0)
         self.assertEqual(calls, ["fix"])
-        self.assertEqual(self.binding("andrey-files"), "<Super>e")        # com a Super consertada, os atalhos nascem
+        self.assertEqual(self.binding("cisma-files"), "<Super>e")        # com a Super consertada, os atalhos nascem
 
     def test_apply_sem_conserto_nao_cria_atalho_com_super(self):
         self.k.super_ok = lambda: False
         self.k.fix_super = lambda: False
         self.k.apply()
-        self.assertEqual(self.binding("andrey-files"), "")
-        self.assertEqual(self.binding("andrey-vol-up"), "XF86AudioRaiseVolume")
+        self.assertEqual(self.binding("cisma-files"), "")
+        self.assertEqual(self.binding("cisma-vol-up"), "XF86AudioRaiseVolume")
 
 
 class HealTests(unittest.TestCase):
@@ -233,39 +233,39 @@ class HealTests(unittest.TestCase):
     def test_sem_teclas_capturadas_nao_mexe_nos_atalhos(self):
         self.k.probe = lambda: []
         self.assertEqual(self.k.heal(settle=0), 0)
-        self.assertEqual(self.binding("andrey-files"), "<Super>e")
+        self.assertEqual(self.binding("cisma-files"), "<Super>e")
 
     def test_nao_recria_atalho_que_a_pessoa_apagou(self):
         self.k.probe = lambda: []
-        FakeSettings.store[self.k.BASE + "andrey-run/"]["binding"] = ""
+        FakeSettings.store[self.k.BASE + "cisma-run/"]["binding"] = ""
         self.k.heal(settle=0)
-        self.assertEqual(self.binding("andrey-run"), "")
+        self.assertEqual(self.binding("cisma-run"), "")
 
     def test_super_consertada_recria_os_atalhos(self):
         state = {"ok": False}
         self.k.super_ok = lambda: state["ok"]
         self.k.fix_super = lambda: state.update(ok=True) or True
         self.k.probe = lambda: []
-        FakeSettings.store[self.k.BASE + "andrey-run/"]["binding"] = ""
+        FakeSettings.store[self.k.BASE + "cisma-run/"]["binding"] = ""
         self.k.heal(settle=0)
-        self.assertEqual(self.binding("andrey-run"), "<Super>r")
+        self.assertEqual(self.binding("cisma-run"), "<Super>r")
 
     def test_sem_x_nao_faz_nada(self):
         self.k.probe = lambda: None
         self.assertEqual(self.k.heal(settle=0), 0)
-        self.assertEqual(self.binding("andrey-files"), "<Super>e")
+        self.assertEqual(self.binding("cisma-files"), "<Super>e")
 
     def test_tecla_engolida_desliga_so_os_atalhos_super_daquela_tecla(self):
         answers = [[(26, "e")], []]                          # 1o teste: E engolido; 2o: liberado
         self.k.probe = lambda: answers.pop(0)
         self.assertEqual(self.k.heal(settle=0), 0)
-        self.assertEqual(self.binding("andrey-files"), "")          # <Super>e foi desligado
-        self.assertEqual(self.binding("andrey-run"), "<Super>r")    # os outros ficam
+        self.assertEqual(self.binding("cisma-files"), "")          # <Super>e foi desligado
+        self.assertEqual(self.binding("cisma-run"), "<Super>r")    # os outros ficam
 
     def test_tecla_que_continua_engolida_devolve_erro(self):
         self.k.probe = lambda: [(26, "x")]
         self.assertEqual(self.k.heal(settle=0), 1)
-        self.assertEqual(self.binding("andrey-files"), "<Super>e")  # nenhum atalho com X: nada a desligar
+        self.assertEqual(self.binding("cisma-files"), "<Super>e")  # nenhum atalho com X: nada a desligar
 
 
 if __name__ == "__main__":

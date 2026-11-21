@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Menu Iniciar
+Comment=Abre o Menu Iniciar do Cisma OS (tecla Super)
+Exec=cisma-start-toggle
+Icon=cisma-grid
+Terminal=false
+NoDisplay=true
+Categories=System;

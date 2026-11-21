@@ -1,7 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Restaurar bloqueio da roda do mouse (Andrey OS)
-Exec=andrey-mouse --apply-saved
-Terminal=false
-NoDisplay=true
-X-MATE-Autostart-enabled=true

@@ -37,7 +37,7 @@ DESC="$(printf '**Notas:**\n%s\n\n**Commits:**\n%s\n\n**Arquivos (%s):**\n%s\n\n
 DESC="$(cut_to "$DESC" 3900)"
 
 PAYLOAD="$(jq -n \
-  --arg title "🚀 Andrey OS $VERSION" \
+  --arg title "🚀 Cisma OS $VERSION" \
   --arg desc  "$DESC" \
   --arg url   "https://github.com/${GITHUB_REPOSITORY}/releases/tag/v${VERSION}" \
   --arg foot  "Atualização $DE → v$VERSION" \

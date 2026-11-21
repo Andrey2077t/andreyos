@@ -1,7 +1,7 @@
 #!/bin/sh
 # Jogos: arquitetura i386, Steam, Wine e as bibliotecas de 32 bits que os dois precisam.
-# (Proton vem do proprio Steam, via Steam Play; o "andrey-games" instala o Proton-GE e diagnostica.)
-# Roda depois do andrey-os-base (0050) e antes da trava de drivers (0200).
+# (Proton vem do proprio Steam, via Steam Play; o "cisma-games" instala o Proton-GE e diagnostica.)
+# Roda depois do cisma-os-base (0050) e antes da trava de drivers (0200).
 #
 # Por que num hook e nao em config/package-lists: pacotes :i386 so existem depois de
 # "dpkg --add-architecture i386", e o steam-installer pergunta a licenca via debconf (precisa de preseed).
@@ -39,7 +39,7 @@ done
 if [ -n "$WANT" ]; then
     # shellcheck disable=SC2086
     apt-get install -y --no-install-recommends $WANT || \
-        echo "AVISO: alguns pacotes opcionais de jogos nao instalaram; o 'andrey-games' acusa o que faltar." >&2
+        echo "AVISO: alguns pacotes opcionais de jogos nao instalaram; o 'cisma-games' acusa o que faltar." >&2
 fi
 
 # --- travas de build -----------------------------------------------------------------------------
@@ -48,8 +48,8 @@ for pkg in steam-installer wine wine32:i386 libwine:i386 mesa-vulkan-drivers:i38
         echo "ERRO: pacote '$pkg' ausente na imagem (Steam/Wine)." >&2; exit 1; }
 done
 dpkg --print-foreign-architectures | grep -qx i386 || { echo "ERRO: i386 nao ficou habilitada." >&2; exit 1; }
-for f in /usr/bin/andrey-games /usr/lib/andrey-os/andrey_games.py /usr/lib/sysctl.d/80-andrey-games.conf; do
-    [ -e "$f" ] || { echo "ERRO: $f ausente depois de instalar o andrey-os-base." >&2; exit 1; }
+for f in /usr/bin/cisma-games /usr/lib/cisma-os/cisma_games.py /usr/lib/sysctl.d/80-cisma-games.conf; do
+    [ -e "$f" ] || { echo "ERRO: $f ausente depois de instalar o cisma-os-base." >&2; exit 1; }
 done
 # No chroot do live-build o PATH nao inclui /usr/games, e o steam-installer instala em /usr/games/steam.
 PATH="$PATH:/usr/games:/usr/local/games"

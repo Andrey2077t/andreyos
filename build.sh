@@ -1,5 +1,5 @@
 #!/bin/bash
-# Gera a ISO do Andrey OS. Rode num Debian/Ubuntu como root:  sudo ./build.sh
+# Gera a ISO do Cisma OS. Rode num Debian/Ubuntu como root:  sudo ./build.sh
 set -euo pipefail
 cd "$(dirname "$0")"
 
@@ -20,18 +20,18 @@ chmod +x auto/* config/hooks/live/*.chroot pkg/*.sh config/includes.chroot/usr/l
 echo "==> Renderizando arte (wallpaper, icones)"
 pkg/render-assets.sh
 mkdir -p config/bootloaders/grub-pc config/bootloaders/grub-efi
-cp pkg/andrey-os-base/root/usr/share/backgrounds/andrey/andrey-os.png config/bootloaders/grub-pc/splash.png
-cp pkg/andrey-os-base/root/usr/share/backgrounds/andrey/andrey-os.png config/bootloaders/grub-efi/splash.png
+cp pkg/cisma-os-base/root/usr/share/backgrounds/cisma/cisma-os.png config/bootloaders/grub-pc/splash.png
+cp pkg/cisma-os-base/root/usr/share/backgrounds/cisma/cisma-os.png config/bootloaders/grub-efi/splash.png
 
 # o codigo-fonte da UI vai junto na ISO (uma unica copia em ui/; esta e gerada e ignorada pelo git)
-mkdir -p config/includes.chroot/usr/share/andrey-os/ui-src
-cp -f ui/andrey_os.cpp config/includes.chroot/usr/share/andrey-os/ui-src/
+mkdir -p config/includes.chroot/usr/share/cisma-os/ui-src
+cp -f ui/cisma_os.cpp config/includes.chroot/usr/share/cisma-os/ui-src/
 
-# monta o pacote andrey-os-base (mesmo pacote que as atualizacoes distribuem) e embute na ISO
+# monta o pacote cisma-os-base (mesmo pacote que as atualizacoes distribuem) e embute na ISO
 VERSION="$(tr -d ' \n\r' < VERSION)"
-echo "==> Montando andrey-os-base $VERSION"
-rm -rf config/includes.chroot/usr/share/andrey-os/pkg
-pkg/build-deb.sh "$VERSION" config/includes.chroot/usr/share/andrey-os/pkg
+echo "==> Montando cisma-os-base $VERSION"
+rm -rf config/includes.chroot/usr/share/cisma-os/pkg
+pkg/build-deb.sh "$VERSION" config/includes.chroot/usr/share/cisma-os/pkg
 
 echo "==> Configurando e construindo (leva de 15 a 60 min)"
 lb clean --purge || true
@@ -39,4 +39,4 @@ lb config
 lb build
 
 ls -lh ./*.iso || { echo "ERRO: o build terminou mas nenhuma ISO foi gerada." >&2; exit 1; }
-echo "Pronto. Teste com:  qemu-system-x86_64 -m 4G -enable-kvm -cdrom andrey-os-amd64.hybrid.iso"
+echo "Pronto. Teste com:  qemu-system-x86_64 -m 4G -enable-kvm -cdrom cisma-os-amd64.hybrid.iso"

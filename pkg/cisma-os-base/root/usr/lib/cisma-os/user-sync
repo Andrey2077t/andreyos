@@ -1,0 +1,39 @@
+#!/bin/bash
+# Roda a cada login. Aplica, uma unica vez por usuario, as migracoes de
+# /usr/lib/cisma-os/migrations/<versao>.sh mais novas que a ultima aplicada.
+# Usuarios novos ja nascem com a versao atual (vem do /etc/skel), entao nao rodam nada.
+CUR=$(dpkg-query -W -f='${Version}' cisma-os-base 2>/dev/null) || exit 0
+OLD_CONFIG="$HOME/.config/andrey-os"
+D="$HOME/.config/cisma-os"
+# Preserva o marcador de versao anterior antes de decidir quais migracoes rodar.
+if [ -d "$OLD_CONFIG" ]; then
+    mkdir -p "$D"
+    cp -a -n "$OLD_CONFIG/." "$D/" 2>/dev/null || true
+    rmdir "$OLD_CONFIG" 2>/dev/null || true
+fi
+mkdir -p "$D"
+for base in "$HOME/.local/share" "$HOME/.cache" "$HOME/.config"; do
+    [ -d "$base" ] || continue
+    for old in "$base"/andrey-* "$base"/Andrey*; do
+        [ -e "$old" ] || continue
+        new="$(dirname "$old")/$(basename "$old" | sed 's/^andrey-/cisma-/; s/^Andrey/Cisma/')"
+        [ -e "$new" ] || mv "$old" "$new"
+    done
+done
+/usr/lib/cisma-os/session-setup || true
+
+F="$D/applied"
+APPLIED=$(cat "$F" 2>/dev/null || echo 0)
+for m in $(ls /usr/lib/cisma-os/migrations/*.sh 2>/dev/null | sort -V); do
+    v=$(basename "$m" .sh)
+    if dpkg --compare-versions "$v" gt "$APPLIED" && dpkg --compare-versions "$v" le "$CUR"; then
+        bash "$m" || echo "cisma-os: migracao $v falhou" >&2
+    fi
+done
+echo "$CUR" > "$F"
+
+# Reaplica o perfil ativo depois que o MATE termina de iniciar, inclusive após reiniciar.
+ACTIVE=$(cisma-session-profiles --status 2>/dev/null || echo daily)
+case "$ACTIVE" in
+    focus|competitive|dev) (sleep 3; cisma-session-profiles --profile "$ACTIVE") >/dev/null 2>&1 & ;;
+esac

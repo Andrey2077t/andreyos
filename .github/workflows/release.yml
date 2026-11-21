@@ -2,8 +2,8 @@ name: Publicar versão (atualização)
 
 # Como usar: aba Actions > "Publicar versão (atualização)" > Run workflow
 # Digite o número (ex.: 0.0.6) e o que mudou. O resultado:
-#   - pacote andrey-os-base_0.0.6_amd64.deb publicado no repositório apt (branch gh-pages / GitHub Pages)
-#   - latest.json com versão nova, versão anterior e notas (o andrey-update mostra isso)
+#   - pacote cisma-os-base_0.0.6_amd64.deb publicado no repositório apt (branch gh-pages / GitHub Pages)
+#   - latest.json com versão nova, versão anterior e notas (o cisma-update mostra isso)
 #   - release v0.0.6 no GitHub com o .deb anexado
 on:
   workflow_dispatch:
@@ -56,9 +56,9 @@ jobs:
             echo "SIGN=1" >> "$GITHUB_ENV"
             # garante que o .deb leve a chave publica (repositório assinado)
             mkdir -p pkg/keyring
-            [ -f pkg/keyring/andrey-os.gpg ] || gpg --batch --export > pkg/keyring/andrey-os.gpg
-          elif [ -f pkg/keyring/andrey-os.gpg ]; then
-            echo "::error::Existe pkg/keyring/andrey-os.gpg mas o segredo APT_GPG_PRIVATE_KEY não foi configurado."; exit 1
+            [ -f pkg/keyring/cisma-os.gpg ] || gpg --batch --export > pkg/keyring/cisma-os.gpg
+          elif [ -f pkg/keyring/cisma-os.gpg ]; then
+            echo "::error::Existe pkg/keyring/cisma-os.gpg mas o segredo APT_GPG_PRIVATE_KEY não foi configurado."; exit 1
           else
             echo "::notice::Sem chave de assinatura: repositório vai ficar sem assinatura (trusted=yes)."
           fi
@@ -79,15 +79,15 @@ jobs:
           fi
 
       - name: Atualizar repositório apt
-        run: bash pkg/update-apt-repo.sh pages "out/andrey-os-base_${VERSION}_amd64.deb" "$VERSION" "$NOTES"
+        run: bash pkg/update-apt-repo.sh pages "out/cisma-os-base_${VERSION}_amd64.deb" "$VERSION" "$NOTES" "out/andrey-os-base_${VERSION}_all.deb"
 
       - name: Publicar no GitHub Pages (gh-pages)
         run: |
           cd pages
-          git config user.name "andrey-os-bot"
-          git config user.email "andrey-os-bot@users.noreply.github.com"
+          git config user.name "cisma-os-bot"
+          git config user.email "cisma-os-bot@users.noreply.github.com"
           git add -A
-          git commit -q -m "Andrey OS $VERSION"
+          git commit -q -m "Cisma OS $VERSION"
           # o GitHub as vezes devolve erro 500: tenta de novo algumas vezes
           for i in 1 2 3 4; do
             git push origin HEAD:gh-pages && break
@@ -100,8 +100,8 @@ jobs:
           for i in 1 2 3 4; do
             # se a tentativa anterior chegou a criar a release (e so a resposta deu erro), nao recria
             gh release view "v$VERSION" >/dev/null 2>&1 && break
-            gh release create "v$VERSION" "out/andrey-os-base_${VERSION}_amd64.deb" \
-              --title "Andrey OS $VERSION" --notes "$NOTES" --target "$GITHUB_SHA" && break
+            gh release create "v$VERSION" "out/cisma-os-base_${VERSION}_amd64.deb" "out/andrey-os-base_${VERSION}_all.deb" \
+              --title "Cisma OS $VERSION" --notes "$NOTES" --target "$GITHUB_SHA" && break
             [ "$i" = 4 ] && { echo "::error::criar a release falhou 4 vezes"; exit 1; }
             echo "tentativa $i falhou; aguardando..." >&2; sleep $((i * 20))
           done
@@ -116,8 +116,8 @@ jobs:
       - name: Registrar VERSION no repositório (usada pelas próximas ISOs)
         continue-on-error: true
         run: |
-          git config user.name "andrey-os-bot"
-          git config user.email "andrey-os-bot@users.noreply.github.com"
+          git config user.name "cisma-os-bot"
+          git config user.email "cisma-os-bot@users.noreply.github.com"
           git checkout -q "${GITHUB_REF_NAME}"
           echo "$VERSION" > VERSION
           git add VERSION

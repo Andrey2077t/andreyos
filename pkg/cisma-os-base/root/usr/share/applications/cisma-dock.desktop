@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Editar dock
+GenericName=Personalizar o dock
+Comment=Edite os itens do dock e ajuste a opacidade do fundo
+Exec=cisma-dock
+Icon=cisma-grid
+Terminal=false
+Categories=Settings;DesktopSettings;
+Keywords=dock;barra;painel;lançador;atalhos;transparente;opacidade;
+StartupNotify=true

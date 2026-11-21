@@ -1,0 +1,247 @@
+#!/usr/bin/python3
+"""Diagnostico simples da roda: bloqueia/restaura os botoes de rolagem por mouse.
+
+O bloqueio e uma solucao temporaria para roda com eventos fantasmas: movimento e
+cliques continuam funcionando. A configuracao fica por nome de dispositivo e e
+reaplicada em cada sessao; pode ser desfeita nesta mesma janela.
+"""
+import json
+import os
+import re
+import subprocess
+import sys
+import tempfile
+
+STATE = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")),
+                     "cisma-os", "mouse-wheel.json")
+
+
+def xinput(*args):
+    return subprocess.run(["xinput", *args], capture_output=True, text=True, timeout=8)
+
+
+def devices():
+    result = xinput("--list", "--short")
+    if result.returncode:
+        raise RuntimeError(result.stderr.strip() or "Nao consegui consultar os dispositivos X11.")
+    found = []
+    for line in result.stdout.splitlines():
+        m = re.search(r"\bid=(\d+)\s+\[slave pointer(?:\s|\])", line)
+        if not m:
+            continue
+        name = re.sub(r"^\s*[↳⎜⎣⎡ ]+", "", line[:m.start()]).strip()
+        if name and not name.lower().startswith(("xinput", "virtual core")):
+            found.append((name, m.group(1)))
+    return found
+
+
+def button_map(device_id):
+    result = xinput("get-button-map", str(device_id))
+    if result.returncode:
+        raise RuntimeError(result.stderr.strip() or "Nao consegui ler os botoes do mouse.")
+    vals = [int(x) for x in re.findall(r"\d+", result.stdout)]
+    if not vals:
+        raise RuntimeError("O dispositivo nao informou o mapa de botoes.")
+    return vals
+
+
+def set_map(device_id, mapping):
+    result = xinput("set-button-map", str(device_id), *map(str, mapping))
+    if result.returncode:
+        raise RuntimeError(result.stderr.strip() or "Nao consegui alterar o mapa de botoes.")
+
+
+def read_state():
+    try:
+        with open(STATE, encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, dict) and isinstance(data.get("blocked"), dict) else {"blocked": {}}
+    except (OSError, ValueError):
+        return {"blocked": {}}
+
+
+def write_state(data):
+    os.makedirs(os.path.dirname(STATE), mode=0o755, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=".mouse-wheel-", dir=os.path.dirname(STATE), text=True)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+            f.write("\n")
+        os.chmod(tmp, 0o600)
+        os.replace(tmp, STATE)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def block(name):
+    state = read_state()
+    if name in state["blocked"]:
+        return False
+    targets = [i for n, i in devices() if n == name]
+    if not targets:
+        raise RuntimeError("Esse mouse nao esta conectado.")
+    mappings = [(device_id, button_map(device_id)) for device_id in targets]
+    if any(len(mapping) < 5 for _, mapping in mappings):
+        raise RuntimeError("O mouse selecionado nao informa os botoes da roda vertical.")
+    if any(mapping != mappings[0][1] for _, mapping in mappings[1:]):
+        raise RuntimeError("Ha dispositivos com o mesmo nome e mapas de botoes diferentes; renomeie um deles antes de alterar.")
+    saved = mappings[0][1]
+    for device_id, mapping in mappings:
+        changed = list(mapping)
+        for button in (4, 5):
+            if len(changed) >= button:
+                changed[button - 1] = 0
+        set_map(device_id, changed)
+    state["blocked"][name] = saved
+    write_state(state)
+    return True
+
+
+def restore(name):
+    state = read_state()
+    saved = state["blocked"].get(name)
+    if not isinstance(saved, list):
+        return False
+    targets = [i for n, i in devices() if n == name]
+    for device_id in targets:
+        current = button_map(device_id)
+        if len(current) != len(saved):
+            raise RuntimeError("O mapa de botoes mudou; conecte o mesmo mouse e tente restaurar novamente.")
+        set_map(device_id, saved)
+    del state["blocked"][name]
+    write_state(state)
+    return True
+
+
+def apply_saved():
+    state = read_state()
+    connected = devices()
+    errors = []
+    for name, saved in state["blocked"].items():
+        for device_name, device_id in connected:
+            if device_name != name:
+                continue
+            try:
+                current = button_map(device_id)
+                if len(current) != len(saved):
+                    errors.append(name + ": mapa de botoes diferente")
+                    continue
+                for b in (4, 5):
+                    if len(current) >= b:
+                        current[b - 1] = 0
+                set_map(device_id, current)
+            except (RuntimeError, OSError, subprocess.SubprocessError) as e:
+                errors.append(name + ": " + str(e))
+    return errors
+
+
+def gui():
+    import gi
+    gi.require_version("Gtk", "3.0")
+    from gi.repository import Gdk, Gtk
+
+    css = Gtk.CssProvider()
+    css.load_from_data(b"window { background:#0b0306; color:#ededf0; } button { padding:7px 12px; }")
+    Gtk.StyleContext.add_provider_for_screen(Gdk.Screen.get_default(), css, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
+    win = Gtk.Window(title="Corrigir roda do mouse")
+    win.set_default_size(470, 220)
+    win.set_border_width(18)
+    win.set_icon_name("input-mouse")
+    box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+    win.add(box)
+    box.pack_start(Gtk.Label(label="Se a roda estiver rolando sozinha, selecione o mouse e bloqueie a rolagem vertical.\n"
+                                   "O ponteiro e os cliques continuam funcionando. A alteração pode ser desfeita aqui.",
+                             xalign=0, line_wrap=True), False, False, 0)
+    combo = Gtk.ComboBoxText()
+    box.pack_start(combo, False, False, 0)
+    status = Gtk.Label(label="", xalign=0, line_wrap=True)
+    box.pack_start(status, False, False, 0)
+    buttons = Gtk.Box(spacing=8)
+    box.pack_start(buttons, False, False, 0)
+    toggle = Gtk.Button(label="Bloquear rolagem")
+    refresh = Gtk.Button(label="Atualizar dispositivos")
+    close = Gtk.Button(label="Fechar")
+    buttons.pack_start(toggle, False, False, 0)
+    buttons.pack_start(refresh, False, False, 0)
+    buttons.pack_end(close, False, False, 0)
+    rows = []
+
+    def selected_name():
+        idx = combo.get_active()
+        return rows[idx][0] if 0 <= idx < len(rows) else None
+
+    def update_button(*_):
+        name = selected_name()
+        active = bool(name and name in read_state()["blocked"])
+        toggle.set_label("Restaurar roda" if active else "Bloquear rolagem")
+        toggle.set_sensitive(name is not None)
+        status.set_text(("Rolagem vertical bloqueada. Movimento e cliques continuam ativos." if active else
+                         "Bloqueia somente os eventos de rolagem para este mouse." if name else
+                         "Nenhum mouse apontador encontrado. Esta ferramenta precisa de uma sessao X11."))
+
+    def refresh_devices(*_):
+        nonlocal rows
+        combo.remove_all()
+        try:
+            rows = devices()
+            for name, device_id in rows:
+                combo.append_text("%s (ID %s)" % (name, device_id))
+            if rows:
+                combo.set_active(0)
+            update_button()
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
+            rows = []
+            status.set_text(str(e))
+            toggle.set_sensitive(False)
+
+    def toggle_wheel(*_):
+        name = selected_name()
+        if not name:
+            return
+        try:
+            if name in read_state()["blocked"]:
+                restore(name)
+                status.set_text("Rolagem restaurada para este mouse.")
+            else:
+                block(name)
+                status.set_text("Rolagem vertical bloqueada. Movimento e cliques continuam ativos.")
+            update_button()
+        except (RuntimeError, OSError, subprocess.SubprocessError) as e:
+            status.set_text(str(e))
+
+    combo.connect("changed", update_button)
+    toggle.connect("clicked", toggle_wheel)
+    refresh.connect("clicked", refresh_devices)
+    close.connect("clicked", lambda *_: win.close())
+    win.connect("destroy", Gtk.main_quit)
+    refresh_devices()
+    win.show_all()
+    Gtk.main()
+
+
+def main(argv):
+    if argv == ["--apply-saved"]:
+        errors = apply_saved()
+        for error in errors:
+            print("cisma-mouse: " + error, file=sys.stderr)
+        return 1 if errors else 0
+    if argv in (["-h"], ["--help"]):
+        print(__doc__)
+        return 0
+    if argv:
+        print("Uso: cisma-mouse [--apply-saved]", file=sys.stderr)
+        return 2
+    gui()
+    return 0
+
+
+if __name__ == "__main__":
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except (OSError, subprocess.SubprocessError, RuntimeError) as e:
+        print("cisma-mouse: " + str(e), file=sys.stderr)
+        sys.exit(1)

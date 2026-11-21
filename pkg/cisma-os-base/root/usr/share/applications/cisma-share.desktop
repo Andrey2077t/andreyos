@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Name=Cisma Share
+GenericName=Compartilhamento de arquivos
+Comment=Envie arquivos entre computadores e celulares
+Exec=cisma-share %U
+Icon=cisma-share
+Terminal=false
+Categories=Network;Utility;
+StartupWMClass=CismaShare
+StartupNotify=true
+Keywords=compartilhar;transferir;arquivos;celular;pc;cisma share;

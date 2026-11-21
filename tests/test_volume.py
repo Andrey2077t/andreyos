@@ -1,6 +1,6 @@
-"""andrey-volume: up/down/set/mute/get e a chamada do Display de volume (andrey-volume-osd).
+"""cisma-volume: up/down/set/mute/get e a chamada do Display de volume (cisma-volume-osd).
 
-Usa um `pactl` falso (estado num arquivo) e um `andrey-volume-osd` falso (so registra os argumentos),
+Usa um `pactl` falso (estado num arquivo) e um `cisma-volume-osd` falso (so registra os argumentos),
 entao roda sem som, sem tela e sem rede.
 """
 import os
@@ -11,7 +11,7 @@ import tempfile
 import time
 import unittest
 
-SCRIPT = pathlib.Path(__file__).resolve().parent.parent / "pkg/andrey-os-base/root/usr/bin/andrey-volume"
+SCRIPT = pathlib.Path(__file__).resolve().parent.parent / "pkg/cisma-os-base/root/usr/bin/cisma-volume"
 
 FAKE_PACTL = r"""#!/bin/sh
 D="$FAKE_DIR"
@@ -105,7 +105,7 @@ class VolumeScript(unittest.TestCase):
         self.assertEqual(self.run_vol("xyz").returncode, 2)
 
     def test_chama_o_display_com_volume_e_mudo(self):
-        self.install("andrey-volume-osd", FAKE_OSD)
+        self.install("cisma-volume-osd", FAKE_OSD)
         self.run_vol("up")
         self.assertEqual(self.osd_log(), ["55 0"])
         (self.tmp / "osd.log").unlink()
@@ -113,13 +113,13 @@ class VolumeScript(unittest.TestCase):
         self.assertEqual(self.osd_log(), ["55 1"])
 
     def test_quiet_nao_chama_o_display(self):
-        self.install("andrey-volume-osd", FAKE_OSD)
+        self.install("cisma-volume-osd", FAKE_OSD)
         self.run_vol("set", "40", "--quiet")
         time.sleep(0.3)
         self.assertFalse((self.tmp / "osd.log").exists())
 
     def test_sem_display_nao_quebra(self):
-        # sem andrey-volume-osd (pacote sem Qt) cai na notificacao; sem gdbus ela e ignorada
+        # sem cisma-volume-osd (pacote sem Qt) cai na notificacao; sem gdbus ela e ignorada
         r = self.run_vol("up")
         self.assertEqual(r.returncode, 0, r.stderr)
         self.assertEqual(self.vol(), 55)

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=Restaurar bloqueio da roda do mouse (Cisma OS)
+Exec=cisma-mouse --apply-saved
+Terminal=false
+NoDisplay=true
+X-MATE-Autostart-enabled=true

@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=Cisma OS
+Description=Splash do Cisma OS
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/cisma
+ScriptFile=/usr/share/plymouth/themes/cisma/cisma.script

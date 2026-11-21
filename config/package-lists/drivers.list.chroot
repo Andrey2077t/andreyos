@@ -1,6 +1,6 @@
 # ---- Hardware e drivers (live e sistema instalado).
 # Com --apt-recommends false nada vem sozinho. Os componentes non-free/non-free-firmware ja estao em auto/config.
-# O que NAO esta aqui (driver proprietario da NVIDIA, wl da Broadcom) e escolhido pelo "andrey-drivers"
+# O que NAO esta aqui (driver proprietario da NVIDIA, wl da Broadcom) e escolhido pelo "cisma-drivers"
 # conforme o hardware, porque precisa de DKMS/headers e nao faz sentido numa sessao live.
 
 # Firmware de Wi-Fi, rede, vídeo (AMD/Intel/NVIDIA nouveau), som e Bluetooth
@@ -23,7 +23,7 @@ vulkan-tools
 intel-media-va-driver-non-free
 i965-va-driver
 
-# Detecta qual driver NVIDIA a placa precisa (usado pelo andrey-drivers)
+# Detecta qual driver NVIDIA a placa precisa (usado pelo cisma-drivers)
 nvidia-detect
 
 # Diagnóstico e utilitários de hardware

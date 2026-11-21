@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""Testes do andrey-tabs (ordem das abas, agrupamento, escolha da janela) sem X/libwnck.
+"""Testes do cisma-tabs (ordem das abas, agrupamento, escolha da janela) sem X/libwnck.
 Rode: python3 -m unittest discover -s tests"""
 import importlib.machinery
 import importlib.util
@@ -7,9 +7,9 @@ import os
 import sys
 import unittest
 
-ROOT = os.path.join(os.path.dirname(__file__), "..", "pkg", "andrey-os-base", "root")
-TABS = os.path.join(ROOT, "usr", "bin", "andrey-tabs")
-KEYS = os.path.join(ROOT, "usr", "bin", "andrey-keys")
+ROOT = os.path.join(os.path.dirname(__file__), "..", "pkg", "cisma-os-base", "root")
+TABS = os.path.join(ROOT, "usr", "bin", "cisma-tabs")
+KEYS = os.path.join(ROOT, "usr", "bin", "cisma-keys")
 
 
 def load(path, name):
@@ -22,7 +22,7 @@ def load(path, name):
 
 class TabsTests(unittest.TestCase):
     def setUp(self):
-        self.t = load(TABS, "andrey_tabs_under_test")
+        self.t = load(TABS, "cisma_tabs_under_test")
         # ordem de abertura: chrome(1), terminal(2), chrome(3), caja(4), terminal(5)
         self.wins = [(1, "chrome"), (2, "term"), (3, "chrome"), (4, "caja"), (5, "term")]
 
@@ -59,7 +59,7 @@ class BarClickTests(unittest.TestCase):
     """Ctrl+1..9 só valem depois de clicar na barra superior: a lógica de "onde caiu o clique"."""
 
     def setUp(self):
-        self.t = load(TABS, "andrey_tabs_bar_under_test")
+        self.t = load(TABS, "cisma_tabs_bar_under_test")
         self.top = (0, 0, 1280, 32)             # barra superior: expand=true, size=32
         self.dock = (440, 734, 400, 56)         # dock de baixo (flutuante, centralizado)
         self.h = 800
@@ -101,19 +101,19 @@ class NotGlobalShortcutTests(unittest.TestCase):
         sys.path.insert(0, os.path.dirname(__file__))
         import test_keys
         k = test_keys.load_keys()
-        self.assertEqual([s for s, _n, _b, _a in k.CUSTOM if s.startswith("andrey-tab-")], [])
+        self.assertEqual([s for s, _n, _b, _a in k.CUSTOM if s.startswith("cisma-tab-")], [])
         self.assertEqual(len(k.TAB_SLUGS), 9)                # só existem para limpar o que versões antigas criaram
 
 
 class DaemonWiringTests(unittest.TestCase):
     def test_autostart_sobe_o_servico(self):
-        f = os.path.join(ROOT, "etc", "xdg", "autostart", "andrey-tabs.desktop")
+        f = os.path.join(ROOT, "etc", "xdg", "autostart", "cisma-tabs.desktop")
         txt = open(f, encoding="utf-8").read()
-        self.assertIn("Exec=andrey-tabs --daemon", txt)
+        self.assertIn("Exec=cisma-tabs --daemon", txt)
         self.assertIn("X-MATE-Autostart-enabled=true", txt)
 
     def test_session_setup_roda_a_limpeza_para_quem_ja_usava(self):
-        txt = open(os.path.join(ROOT, "usr", "lib", "andrey-os", "session-setup"), encoding="utf-8").read()
+        txt = open(os.path.join(ROOT, "usr", "lib", "cisma-os", "session-setup"), encoding="utf-8").read()
         level = [l for l in txt.splitlines() if l.startswith("LEVEL=")][0]
         self.assertGreaterEqual(int(level.split("=")[1]), 7)  # quem estava no nível 6 tinha os atalhos globais
 

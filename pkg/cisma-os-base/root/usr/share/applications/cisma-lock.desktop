@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Bloquear a tela
+Exec=cisma-lock
+Icon=system-lock-screen
+Terminal=false
+Categories=System;
+Keywords=bloquear;trancar;lock;

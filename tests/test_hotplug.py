@@ -5,7 +5,7 @@ import re
 import unittest
 
 ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
-PKG = os.path.join(ROOT, "pkg", "andrey-os-base")
+PKG = os.path.join(ROOT, "pkg", "cisma-os-base")
 
 
 def read(*parts):
@@ -15,7 +15,7 @@ def read(*parts):
 
 class MenuAppsTest(unittest.TestCase):
     def setUp(self):
-        self.src = read(PKG, "root", "usr", "bin", "andrey-start")
+        self.src = read(PKG, "root", "usr", "bin", "cisma-start")
 
     def test_monitor_fica_guardado(self):
         # Gio.AppInfoMonitor.get().connect(...) sem guardar o objeto: o GLib destroi o monitor e o sinal
@@ -30,12 +30,12 @@ class MenuAppsTest(unittest.TestCase):
 
 class AudioHotplugTest(unittest.TestCase):
     def test_dropin_do_pulseaudio(self):
-        s = read(PKG, "root", "etc", "pulse", "default.pa.d", "50-andrey-hotplug.pa")
+        s = read(PKG, "root", "etc", "pulse", "default.pa.d", "50-cisma-hotplug.pa")
         self.assertRegex(s, r"(?m)^load-module module-switch-on-connect\s*$")
 
     def test_dependencias(self):
         control = read(PKG, "control")
-        lista = read(ROOT, "config", "package-lists", "andrey.list.chroot")
+        lista = read(ROOT, "config", "package-lists", "cisma.list.chroot")
         for pkg in ("desktop-file-utils", "shared-mime-info", "libgtk-3-bin", "udisks2", "gvfs"):
             self.assertRegex(control, r"[ ,]%s[ ,]" % re.escape(pkg), pkg)
             self.assertRegex(lista, r"(?m)^%s\s*$" % re.escape(pkg), pkg)
@@ -46,21 +46,21 @@ if __name__ == "__main__":
 
 
 class AudioHealTest(unittest.TestCase):
-    """andrey-audio-heal: placa so em saida (jack do microfone nao detectado) ganha o perfil duplex."""
+    """cisma-audio-heal: placa so em saida (jack do microfone nao detectado) ganha o perfil duplex."""
 
     @classmethod
     def setUpClass(cls):
         import importlib.machinery
         import importlib.util
-        path = os.path.join(PKG, "root", "usr", "bin", "andrey-audio-heal")
-        loader = importlib.machinery.SourceFileLoader("andrey_audio_heal_under_test", path)
+        path = os.path.join(PKG, "root", "usr", "bin", "cisma-audio-heal")
+        loader = importlib.machinery.SourceFileLoader("cisma_audio_heal_under_test", path)
         spec = importlib.util.spec_from_loader(loader.name, loader)
         cls.m = importlib.util.module_from_spec(spec)
         loader.exec_module(cls.m)
 
     @staticmethod
     def pch(active="output:analog-stereo"):
-        # a placa real do Andrey (Realtek ALC662): entrada "indisponivel" por falta de deteccao do jack
+        # a placa real do Cisma (Realtek ALC662): entrada "indisponivel" por falta de deteccao do jack
         return {"name": "alsa_card.pci-0000_00_1b.0", "active_profile": active, "profiles": {
             "input:analog-stereo": {"sinks": 0, "sources": 1, "priority": 65, "available": False},
             "output:analog-stereo": {"sinks": 1, "sources": 0, "priority": 39268, "available": True},
