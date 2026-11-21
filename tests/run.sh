@@ -1,7 +1,7 @@
 #!/bin/bash
 # Verificacoes rapidas, sem root e sem rede:  ./tests/run.sh
 #   - sintaxe de todos os scripts (bash/sh/python)   - shellcheck (se instalado)
-#   - UI C++ compila sem avisos e gera wallpaper/icones   - testes unitarios
+#   - UI C++ compila sem avisos e copia wallpaper/icones   - testes unitarios
 #   - o .deb sai com as permissoes certas e sem lixo (__pycache__)
 set -euo pipefail
 cd "$(dirname "$0")/.."

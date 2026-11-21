@@ -1000,3 +1000,5 @@ int main(int argc, char *argv[])
     UninstallWindow w;
     w.show();
     return app.exec();
+}
+

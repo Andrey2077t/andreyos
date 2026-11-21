@@ -6,7 +6,7 @@
 // Uso:
 //   ./cisma_os              -> gera cisma_os.png (1672x941)
 //   ./cisma_os --window     -> abre uma janela X11 com a interface
-//   ./cisma_os --bg a.png   -> so o papel de parede
+//   ./cisma_os --bg a.png   -> copia o wallpaper oficial (ui/wallpaper.png)
 //   ./cisma_os --icons DIR  -> exporta os icones do desenho em SVG (tema de icones Cisma)
 
 #include <cairo/cairo.h>
@@ -20,6 +20,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <fstream>
 #include <string>
 #include <vector>
 
@@ -681,14 +682,6 @@ static void render(cairo_t* cr) {
     draw_corners(cr);
 }
 
-// versão só do papel de parede (sem barras/docks/painel: esses são reais no sistema)
-static void render_bg(cairo_t* cr) {
-    cairo_set_antialias(cr, CAIRO_ANTIALIAS_BEST);
-    draw_background(cr);
-    draw_logo(cr);
-    draw_corners(cr);
-}
-
 
 // ---------------------------------------------------------------- exporta icones SVG
 // Os mesmos icones desenhados na UI viram arquivos SVG 48x48 para o tema de icones "Cisma".
@@ -789,8 +782,19 @@ int main(int argc, char** argv) {
     if (argc > 1 && !strcmp(argv[1], "--icons"))  return export_icons(argc > 2 ? argv[2] : "icons");
 
     if (argc > 1 && !strcmp(argv[1], "--bg")) {
-        fprintf(stderr, "O wallpaper oficial e o arquivo ui/wallpaper.png; use esse arquivo em vez de regenerar a arte.\n");
-        return 2;
+        const char* out = argc > 2 ? argv[2] : "wallpaper.png";
+        std::ifstream src("ui/wallpaper.png", std::ios::binary);
+        std::ofstream dst(out, std::ios::binary);
+        if (!src || !dst) {
+            fprintf(stderr, "Nao consegui copiar o wallpaper oficial para %s.\n", out);
+            return 1;
+        }
+        dst << src.rdbuf();
+        if (!dst) {
+            fprintf(stderr, "Falha ao gravar %s.\n", out);
+            return 1;
+        }
+        return 0;
     }
     cairo_surface_t* surf = cairo_image_surface_create(CAIRO_FORMAT_ARGB32, W, H);
     cairo_t* cr = cairo_create(surf);
@@ -805,3 +809,4 @@ int main(int argc, char** argv) {
     }
     printf("Gerado: %s (%dx%d)\n", out, W, H);
     return 0;
+}
