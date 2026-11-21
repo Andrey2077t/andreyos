@@ -1,26 +1,4 @@
 Package: andrey-os-base
-Version: 0.4.3
-Architecture: amd64
-Maintainer: Andrey OS <andrey-os@localhost>
-Installed-Size: 2496
-Depends: mate-panel, mate-applets, libglib2.0-bin, pulseaudio-utils, desktop-file-utils, shared-mime-info, libgtk-3-bin, udisks2, gvfs, gvfs-backends, gvfs-fuse, curl, jq, zenity, pkexec, python3, python3-gi, gir1.2-gtk-3.0, gir1.2-wnck-3.0, librsvg2-common, xinput, chromium | chromium-browser | google-chrome-stable, wmctrl, bluez, blueman, engrampa, zip, unzip, 7zip | p7zip-full, libqt6widgets6t64 | libqt6widgets6, libqt6svg6t64 | libqt6svg6, libqt6network6t64 | libqt6network6, qt6-qpa-plugins, libxcb-cursor0
-Recommends: fonts-dejavu-core, python3-pyflakes, git, plymouth, pulseaudio-module-bluetooth, bluez-obexd, unrar | unrar-free, xz-utils, bzip2, zstd, icoutils, libnotify-bin
-Suggests: umu-launcher
-Filename: pool/andrey-os-base_0.4.3_amd64.deb
-Size: 735158
-MD5sum: 347a7695a95547be358b5f36ad045649
-SHA1: 8407a6cdfb5e7889b4ecbf6bb22470f21cdacb7f
-SHA256: 02d87eeb4ed9c34a663550d1dceae8a131a09992d25b0972dd40fd76df58c92c
-Section: misc
-Priority: optional
-Description: Identidade visual e atualizador do Andrey OS
- Paineis (barra superior e dock), icones vermelhos, wallpaper, tema Plymouth,
- branding do instalador, conky, a janela "Desinstalar Programas" (Qt6), o Display de volume (Qt6) e o atualizador
- "andrey-update", que busca novas versoes no repositorio apt do projeto (GitHub Pages). Tambem traz o
- suporte a compactar/extrair arquivos (Engrampa), o editor de codigo Andrey Code (Qt6), o aplicativo Andrey Music e o "Executar com Proton" (andrey-exe),
- que abre .exe com duplo clique pelo umu-launcher + Proton-GE.
-
-Package: andrey-os-base
 Version: 0.4.4
 Architecture: amd64
 Maintainer: Andrey OS <andrey-os@localhost>
@@ -216,5 +194,43 @@ Description: Identidade visual e atualizador do Andrey OS
  branding do instalador, conky, as janelas "Desinstalar Programas" e Display de volume (Qt6), além do atualizador
  "andrey-update", que busca novas versoes no repositorio apt do projeto (GitHub Pages). Tambem traz o
  suporte a compactar/extrair arquivos (Engrampa), o editor de codigo Andrey Code (Qt6), os aplicativos Andrey Music e Andrey Share, os Perfis de Sessão (Diário, Focus, Competitive e Dev) e o "Executar com Proton" (andrey-exe),
+ que abre .exe com duplo clique pelo umu-launcher + Proton-GE.
+
+Package: andrey-os-base
+Version: 1.0
+Architecture: all
+Depends: cisma-os-base (= 1.0)
+Filename: pool/andrey-os-base_1.0_all.deb
+Size: 532
+MD5sum: 2329712be88b6d572092dfbcb6d21fb6
+SHA1: 347f033eeebfab5b431b1832488c221097aea56d
+SHA256: 33303c6e6565b4552532a8a1a8451b0cb8fffc9bb2fc70d58f198304fcefcbea
+Section: misc
+Priority: optional
+Description: Pacote de transicao para Cisma OS
+ Este pacote vazio transfere atualizacoes antigas para cisma-os-base.
+
+Package: cisma-os-base
+Version: 1.0
+Architecture: amd64
+Maintainer: Cisma OS <cisma-os@localhost>
+Installed-Size: 5140
+Depends: mate-panel, mate-applets, libglib2.0-bin, pulseaudio-utils, desktop-file-utils, shared-mime-info, libgtk-3-bin, udisks2, gvfs, gvfs-backends, gvfs-fuse, curl, jq, zenity, pkexec, python3, python3-gi, gir1.2-gtk-3.0, gir1.2-wnck-3.0, librsvg2-common, xinput, chromium | chromium-browser | google-chrome-stable, wmctrl, bluez, blueman, engrampa, zip, unzip, 7zip | p7zip-full, libqt6widgets6t64 | libqt6widgets6, libqt6svg6t64 | libqt6svg6, libqt6network6t64 | libqt6network6, qt6-qpa-plugins, libxcb-cursor0
+Recommends: fonts-dejavu-core, python3-pyflakes, git, plymouth, pulseaudio-module-bluetooth, bluez-obexd, unrar | unrar-free, xz-utils, bzip2, zstd, icoutils, libnotify-bin
+Suggests: umu-launcher, qemu-system-x86, libvirt-daemon-system, virt-manager, ovmf
+Breaks: andrey-os-base (<< 0.6.0)
+Replaces: andrey-os-base (<< 0.6.0)
+Filename: pool/cisma-os-base_1.0_amd64.deb
+Size: 2247744
+MD5sum: d7bcce3871f4768f88a8edb454ee2c7d
+SHA1: 596129b931271af69a93c30f89cdb9f0d98b0b44
+SHA256: 806905840c629bf1e22b20c2646620e92c2031e4cf73119b934b98063c94d68d
+Section: misc
+Priority: optional
+Description: Identidade visual e atualizador do Cisma OS
+ Paineis (barra superior e dock), icones vermelhos, wallpaper, tema Plymouth,
+ branding do instalador, conky, as janelas "Desinstalar Programas" e Display de volume (Qt6), além do atualizador
+ "cisma-update", que busca novas versoes no repositorio apt do projeto (GitHub Pages). Tambem traz o
+ suporte a compactar/extrair arquivos (Engrampa), o editor de codigo Cisma Code (Qt6), os aplicativos Cisma Music e Cisma Share, os Perfis de Sessão (Diário, Focus, Competitive e Dev) e o "Executar com Proton" (cisma-exe),
  que abre .exe com duplo clique pelo umu-launcher + Proton-GE.
 
