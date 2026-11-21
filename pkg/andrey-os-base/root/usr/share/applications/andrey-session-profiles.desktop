@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Perfis de Sessão
+GenericName=Perfis do desktop
+Comment=Troque entre Diário, Focus, Competitive e Dev
+Exec=andrey-session-profiles --gui
+Icon=andrey-session-profiles
+Terminal=false
+Categories=Settings;System;
+Keywords=sessão;perfil;focus;música;games;dev;desempenho;
+StartupNotify=true

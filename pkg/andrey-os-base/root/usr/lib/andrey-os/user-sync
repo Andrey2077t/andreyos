@@ -15,3 +15,9 @@ for m in $(ls /usr/lib/andrey-os/migrations/*.sh 2>/dev/null | sort -V); do
     fi
 done
 echo "$CUR" > "$F"
+
+# Reaplica o perfil ativo depois que o MATE termina de iniciar, inclusive após reiniciar.
+ACTIVE=$(andrey-session-profiles --status 2>/dev/null || echo daily)
+case "$ACTIVE" in
+    focus|competitive|dev) (sleep 3; andrey-session-profiles --profile "$ACTIVE") >/dev/null 2>&1 & ;;
+esac

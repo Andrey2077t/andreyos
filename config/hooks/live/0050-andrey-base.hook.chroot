@@ -17,7 +17,9 @@ for f in /usr/share/mate-panel/layouts/andrey.layout /usr/share/icons/Andrey/ind
          /usr/share/backgrounds/andrey/andrey-os.png /usr/bin/andrey-update /usr/bin/andrey-uninstall /usr/bin/andrey-volume-osd \
          /usr/bin/andrey-music /usr/share/applications/andrey-music.desktop /usr/share/icons/Andrey/scalable/apps/andrey-music.svg \
          /usr/bin/andrey-code /usr/share/applications/andrey-code.desktop /usr/share/icons/Andrey/scalable/apps/andrey-code.svg \
-         /usr/bin/andrey-share /usr/share/applications/andrey-share.desktop /usr/share/icons/Andrey/scalable/apps/andrey-share.svg; do
+         /usr/bin/andrey-share /usr/share/applications/andrey-share.desktop /usr/share/icons/Andrey/scalable/apps/andrey-share.svg \
+         /usr/bin/andrey-session-profiles /usr/share/applications/andrey-session-profiles.desktop /usr/share/icons/Andrey/scalable/apps/andrey-session-profiles.svg \
+         /usr/share/backgrounds/andrey/andrey-os-focus.png; do
     [ -e "$f" ] || { echo "ERRO: $f ausente depois de instalar o andrey-os-base." >&2; exit 1; }
 done
 

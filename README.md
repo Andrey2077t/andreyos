@@ -227,3 +227,14 @@ Menu Iniciar). Arquivos de código (`.py`, `.c`, `.cpp`, `.js`, `.json`, `.lua`,
   não mostra caracteres de largura dupla (CJK) alinhados e não repassa o mouse para programas dentro dele.
 - **Build:** `qt6-base-dev` (Widgets e Network). Testes: `QT_QPA_PLATFORM=offscreen andrey-code --selftest` (o `tests/run.sh` já roda).
   `andrey-code --grab ARQ.png [--do run|term|git|problems|ports|find|welcome|search:TEXTO|termcmd:CMD|debug:LINHA|debugnext:LINHA] [ARQUIVO...]` grava a janela num PNG.
+
+## Perfis de Sessão
+
+**Perfis de Sessão** (`andrey-session-profiles`, também no Menu Iniciar) troca o desktop entre quatro contextos. Os atalhos `Super+Alt+1` até `Super+Alt+4` selecionam Diário, Focus, Competitive e Dev. O perfil Diário restaura o estado do dock, tema, papel de parede, agrupamento de janelas, composição, notificações e plano de energia que estavam ativos antes da troca.
+
+- **Diário:** volta às preferências salvas.
+- **Focus / Música:** ativa Não perturbe via D-Bus no daemon MATE compatível (ou reduz banners pela configuração disponível), agrupa as abas, minimiza apps de chat reconhecidos, usa um wallpaper mais escuro e abre o Andrey Music. A música continua tocando ao trocar de perfil.
+- **Competitive / Games:** seleciona o plano `performance` se `powerprofilesctl` estiver instalado e disponível, desliga a composição do Marco enquanto o modo está ativo e deixa no dock os atalhos essenciais encontrados no sistema. Não encerra processos de forma forçada nem remapeia teclas e mouse de jogos automaticamente.
+- **Dev / Code:** abre Andrey Code, terminal e Firefox quando ainda não estão abertos e tenta organizar as janelas em uma composição de trabalho padrão. A composição é fixa; o perfil não grava posições personalizadas anteriores.
+
+O botão **AntiCheat / VFIO** abre o assistente existente separadamente. Ativar um perfil de jogos não altera VFIO, kernel ou configuração de boot.
