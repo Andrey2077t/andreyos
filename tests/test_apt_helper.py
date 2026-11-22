@@ -35,8 +35,8 @@ class NeedListsTests(unittest.TestCase):
     def test_so_o_repositorio_do_cisma_ainda_precisa_atualizar(self):
         # regressão: depois de "Atualizar Cisma OS" só existia a lista do repo flat do Cisma,
         # o teste antigo achava que havia índices do Debian e a Loja dizia "pacote não encontrado"
-        self.assertTrue(self.run_case(["Andrey2077t.github.io_andreyos_apt_._Packages",
-                                       "Andrey2077t.github.io_andreyos_apt_._Release"]))
+        self.assertTrue(self.run_case(["Andrey2077t.github.io_cismaos_apt_._Packages",
+                                       "Andrey2077t.github.io_cismaos_apt_._Release"]))
 
     def test_com_indice_do_debian_nao_atualiza(self):
         self.assertFalse(self.run_case(["deb.debian.org_debian_dists_trixie_main_binary-amd64_Packages.lz4"]))

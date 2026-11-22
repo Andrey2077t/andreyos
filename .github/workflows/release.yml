@@ -31,6 +31,8 @@ jobs:
       GH_TOKEN: ${{ github.token }}
       VERSION: ${{ inputs.version }}
       NOTES: ${{ inputs.notes }}
+      # URL de destino para a migração do repositório. Publique esta versão antes de renomear.
+      CISMA_UPDATE_URL: https://andrey2077t.github.io/cismaos
       APT_GPG_PRIVATE_KEY: ${{ secrets.APT_GPG_PRIVATE_KEY }}
     steps:
       - uses: actions/checkout@v4

@@ -2,7 +2,7 @@
 # Monta o pacote cisma-os-base a partir de pkg/cisma-os-base/.
 #   uso: pkg/build-deb.sh VERSAO [PASTA_DE_SAIDA]      ex.: pkg/build-deb.sh 0.0.6 out
 # Variaveis opcionais:
-#   GITHUB_REPOSITORY   "dono/repo" (o GitHub Actions ja define)   padrao: Andrey2077t/andreyos
+#   GITHUB_REPOSITORY   "dono/repo" (o GitHub Actions ja define)   padrao: Andrey2077t/cismaos
 #   CISMA_UPDATE_URL   endereco base das atualizacoes (substitui o padrao do GitHub Pages)
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -11,7 +11,7 @@ VERSION="${1:?uso: pkg/build-deb.sh VERSAO [SAIDA]}"
 OUT="${2:-.}"
 [[ "$VERSION" =~ ^[0-9]+(\.[0-9]+)*$ ]] || { echo "Versao invalida: '$VERSION' (use algo como 0.0.6)" >&2; exit 1; }
 
-REPO="${GITHUB_REPOSITORY:-Andrey2077t/andreyos}"
+REPO="${GITHUB_REPOSITORY:-Andrey2077t/cismaos}"
 OWNER="${REPO%%/*}"; NAME="${REPO##*/}"
 BASE_URL="${CISMA_UPDATE_URL:-https://${OWNER,,}.github.io/${NAME}}"
 BASE_URL="${BASE_URL%/}"

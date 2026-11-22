@@ -243,3 +243,7 @@ O botão **AntiCheat / VFIO** abre o assistente existente separadamente. Ativar 
 ### Renomeacao para Cisma OS (0.6.0)
 
 A marca, os comandos, os arquivos de configuracao do sistema e o pacote principal passam a usar Cisma. O pacote vazio `andrey-os-base` e publicado temporariamente apenas para que instalacoes antigas consigam concluir a primeira atualizacao para `cisma-os-base`. Os dominios dos servicos web, a conta GitHub e o repositorio atual continuam com os enderecos originais, pois sao infraestrutura externa que nao muda junto com os arquivos deste projeto.
+
+### Preparação para renomear o repositório
+
+O pacote de transição 1.0.3 é construído para buscar atualizações em `https://andrey2077t.github.io/cismaos`. Publique e instale essa versão enquanto o repositório ainda se chama `andreyos`; depois da renomeação, o GitHub Pages passa a servir nesse novo caminho. Instalações que não receberem a 1.0.3 antes da troca continuam apontando para o endereço antigo do Pages, que não é redirecionado pelo GitHub. O endereço das atualizações e o nome do repositório precisam permanecer sincronizados nas versões futuras.
