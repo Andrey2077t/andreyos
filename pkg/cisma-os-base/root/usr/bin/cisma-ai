@@ -1,9 +1,9 @@
 #!/bin/sh
-# Cisma AI como aplicativo do Cisma OS: abre https://andreyai.pages.dev/ numa janela propria
+# Cisma AI como aplicativo do Cisma OS: abre https://cismaai.pages.dev/ numa janela propria
 # (sem abas e sem barra de enderecos), com perfil e icone proprios, separado do navegador.
 #   cisma-ai            abre o aplicativo (se ja estiver aberto, so traz a janela para a frente)
 # Usa o Chromium em modo --app. Variavel opcional: CISMA_AI_URL (outro endereco).
-URL="${CISMA_AI_URL:-https://andreyai.pages.dev/}"
+URL="${CISMA_AI_URL:-https://cismaai.pages.dev/}"
 CLASS="CismaAI"
 PROFILE="${XDG_CONFIG_HOME:-$HOME/.config}/cisma-ai"
 
