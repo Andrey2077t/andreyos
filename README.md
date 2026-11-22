@@ -242,8 +242,8 @@ O botão **AntiCheat / VFIO** abre o assistente existente separadamente. Ativar 
 
 ### Renomeacao para Cisma OS (0.6.0)
 
-A marca, os comandos, os arquivos de configuracao do sistema e o pacote principal passam a usar Cisma. O pacote vazio `andrey-os-base` e publicado temporariamente apenas para que instalacoes antigas consigam concluir a primeira atualizacao para `cisma-os-base`. Os dominios dos servicos web, a conta GitHub e o repositorio atual continuam com os enderecos originais, pois sao infraestrutura externa que nao muda junto com os arquivos deste projeto.
+A marca, os comandos, os arquivos de configuracao do sistema e o pacote principal passam a usar Cisma. O pacote vazio `andrey-os-base` e publicado temporariamente apenas para que instalacoes antigas consigam concluir a primeira atualizacao para `cisma-os-base`. O repositório oficial agora é [Andrey2077t/cismaos](https://github.com/Andrey2077t/cismaos); os endereços dos serviços web e a conta GitHub continuam independentes da marca do sistema.
 
-### Preparação para renomear o repositório
+### Migração do endereço de atualizações
 
-O pacote de transição 1.0.3 é construído para buscar atualizações em `https://andrey2077t.github.io/cismaos`. Publique e instale essa versão enquanto o repositório ainda se chama `andreyos`; depois da renomeação, o GitHub Pages passa a servir nesse novo caminho. Instalações que não receberem a 1.0.3 antes da troca continuam apontando para o endereço antigo do Pages, que não é redirecionado pelo GitHub. O endereço das atualizações e o nome do repositório precisam permanecer sincronizados nas versões futuras.
+A versão 1.0.3 migra o APT e o verificador de versões para `https://andrey2077t.github.io/cismaos`, o endereço atual do GitHub Pages. Instalações que ainda não receberam a 1.0.3 podem continuar apontando para o caminho antigo `/andreyos`; o GitHub não redireciona URLs de sites de projeto quando um repositório é renomeado. Atualize essas instalações antes de depender delas para receber versões futuras.
