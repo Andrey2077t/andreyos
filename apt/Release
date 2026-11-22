@@ -2,10 +2,10 @@ Origin: Cisma OS
 Label: Cisma OS
 Suite: stable
 Description: Repositorio do Cisma OS
-Date: Sat, 21 Nov 2026 20:56:13 +0000
+Date: Sun, 22 Nov 2026 09:18:42 +0000
 MD5Sum:
- 4514c14dc46004aebb8935ad4ebe70c5 18579 Packages
- 939ad40066b797277324aa7851606159 2673 Packages.gz
+ 7f2fd78863cf82cb8fa55c951d543adb 19172 Packages
+ cdded460bcc3dc138dabb9143b5bce08 2769 Packages.gz
 SHA256:
- d9ce734836758001e1087de03d5a0f7f48b1a611d6fd5d8bc1d67fb3d68aa962 18579 Packages
- 7497235261d03af0c85b373097be7a3e6821023b3978d526c12ac68023e15f79 2673 Packages.gz
+ cd4c2176c72a847277ddffb1e3d84f14fb29e49aaed2dc6dc2a4900cb121b2c7 19172 Packages
+ 61357dd94f238b9b51ac440f156503d9e579fa931e75425f5591eb6077d4bdf5 2769 Packages.gz
