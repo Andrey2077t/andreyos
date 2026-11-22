@@ -1,7 +1,7 @@
 #!/bin/sh
 # Cisma Share como app do Cisma OS: janela Chromium dedicada ao PWA de compartilhamento.
 # Perfil separado do navegador e dos outros apps Cisma.
-URL="https://andreyshare.pages.dev/"
+URL="https://cismashare.pages.dev/"
 CLASS="CismaShare"
 PROFILE="${XDG_CONFIG_HOME:-$HOME/.config}/cisma-share"
 
