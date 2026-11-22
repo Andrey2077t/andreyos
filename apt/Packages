@@ -1,26 +1,4 @@
 Package: andrey-os-base
-Version: 0.4.8
-Architecture: amd64
-Maintainer: Andrey OS <andrey-os@localhost>
-Installed-Size: 2684
-Depends: mate-panel, mate-applets, libglib2.0-bin, pulseaudio-utils, ffmpeg, desktop-file-utils, shared-mime-info, libgtk-3-bin, udisks2, gvfs, gvfs-backends, gvfs-fuse, curl, jq, zenity, pkexec, python3, python3-gi, gir1.2-gtk-3.0, gir1.2-wnck-3.0, librsvg2-common, xinput, chromium | chromium-browser | google-chrome-stable, wmctrl, bluez, blueman, engrampa, zip, unzip, 7zip | p7zip-full, libqt6widgets6t64 | libqt6widgets6, libqt6svg6t64 | libqt6svg6, libqt6network6t64 | libqt6network6, qt6-qpa-plugins, libxcb-cursor0
-Recommends: fonts-dejavu-core, python3-pyflakes, git, plymouth, pulseaudio-module-bluetooth, bluez-obexd, unrar | unrar-free, xz-utils, bzip2, zstd, icoutils, libnotify-bin
-Suggests: umu-launcher, qemu-system-x86, libvirt-daemon-system, virt-manager, ovmf, v4l2loopback-dkms, v4l2loopback-utils
-Filename: pool/andrey-os-base_0.4.8_amd64.deb
-Size: 773032
-MD5sum: 311c47ff1df0c38e55c72614342357dc
-SHA1: 8eb9caec47c590b2638735400f43eb3f93cbc568
-SHA256: e833fc0fa89f17cc7c93ee3f2a36ebd660ff63fa1026d92e31a11b8ec2b5f472
-Section: misc
-Priority: optional
-Description: Identidade visual e atualizador do Andrey OS
- Paineis (barra superior e dock), icones vermelhos, wallpaper, tema Plymouth,
- branding do instalador, conky, as janelas "Desinstalar Programas", Display de volume e AndreyCam (Qt6), além do atualizador
- "andrey-update", que busca novas versoes no repositorio apt do projeto (GitHub Pages). Tambem traz o
- suporte a compactar/extrair arquivos (Engrampa), o editor de codigo Andrey Code (Qt6), o aplicativo Andrey Music e o "Executar com Proton" (andrey-exe),
- que abre .exe com duplo clique pelo umu-launcher + Proton-GE.
-
-Package: andrey-os-base
 Version: 0.4.9
 Architecture: amd64
 Maintainer: Andrey OS <andrey-os@localhost>
@@ -178,6 +156,20 @@ Priority: optional
 Description: Pacote de transicao para Cisma OS
  Este pacote vazio transfere atualizacoes antigas para cisma-os-base.
 
+Package: andrey-os-base
+Version: 1.0.5
+Architecture: all
+Depends: cisma-os-base (= 1.0.5)
+Filename: pool/andrey-os-base_1.0.5_all.deb
+Size: 534
+MD5sum: d8cbf0776ace8d53c86414acf1529690
+SHA1: 5d7e883fa02c82a4fb1f04c2cc41296ba24e0fe3
+SHA256: 692449ca56cc781055805fd6ce94801629af52cc7fa47d74bce0dabb163b34db
+Section: misc
+Priority: optional
+Description: Pacote de transicao para Cisma OS
+ Este pacote vazio transfere atualizacoes antigas para cisma-os-base.
+
 Package: cisma-os-base
 Version: 1.0
 Architecture: amd64
@@ -289,6 +281,30 @@ Size: 2248264
 MD5sum: 0ee463e4080ddcd771dc8967164e6cea
 SHA1: 8c396af10a1d6025c98530d845fd64e6d3c3177b
 SHA256: d716fe75ddf54fc22a34c11b61aec042018ab472e3c95824ad849e4a0af0d58c
+Section: misc
+Priority: optional
+Description: Identidade visual e atualizador do Cisma OS
+ Paineis (barra superior e dock), icones vermelhos, wallpaper, tema Plymouth,
+ branding do instalador, conky, as janelas "Desinstalar Programas" e Display de volume (Qt6), além do atualizador
+ "cisma-update", que busca novas versoes no repositorio apt do projeto (GitHub Pages). Tambem traz o
+ suporte a compactar/extrair arquivos (Engrampa), o editor de codigo Cisma Code (Qt6), os aplicativos Cisma Music e Cisma Share, os Perfis de Sessão (Diário, Focus, Competitive e Dev) e o "Executar com Proton" (cisma-exe),
+ que abre .exe com duplo clique pelo umu-launcher + Proton-GE.
+
+Package: cisma-os-base
+Version: 1.0.5
+Architecture: amd64
+Maintainer: Cisma OS <cisma-os@localhost>
+Installed-Size: 5140
+Depends: mate-panel, mate-applets, libglib2.0-bin, pulseaudio-utils, desktop-file-utils, shared-mime-info, libgtk-3-bin, udisks2, gvfs, gvfs-backends, gvfs-fuse, curl, jq, zenity, pkexec, python3, python3-gi, gir1.2-gtk-3.0, gir1.2-wnck-3.0, librsvg2-common, xinput, chromium | chromium-browser | google-chrome-stable, wmctrl, bluez, blueman, engrampa, zip, unzip, 7zip | p7zip-full, libqt6widgets6t64 | libqt6widgets6, libqt6svg6t64 | libqt6svg6, libqt6network6t64 | libqt6network6, qt6-qpa-plugins, libxcb-cursor0
+Recommends: fonts-dejavu-core, python3-pyflakes, git, plymouth, pulseaudio-module-bluetooth, bluez-obexd, unrar | unrar-free, xz-utils, bzip2, zstd, icoutils, libnotify-bin
+Suggests: umu-launcher, qemu-system-x86, libvirt-daemon-system, virt-manager, ovmf
+Breaks: andrey-os-base (<< 0.6.0)
+Replaces: andrey-os-base (<< 0.6.0)
+Filename: pool/cisma-os-base_1.0.5_amd64.deb
+Size: 2247676
+MD5sum: 03ed11724a40f11912313efc35a77d42
+SHA1: 06467973a1a644f01fd8c7b77895fb31ea2f0242
+SHA256: 5a79302b1c7029d71cf60a9ab6c1181aa92b8b59b61c03fe203c4e5ad35b559c
 Section: misc
 Priority: optional
 Description: Identidade visual e atualizador do Cisma OS
