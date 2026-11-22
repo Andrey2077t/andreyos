@@ -25,7 +25,7 @@ class CismaMusic(unittest.TestCase):
     def test_launcher_usa_o_endereco_e_perfil_proprios(self):
         with open(p("usr", "bin", "cisma-music"), encoding="utf-8") as fh:
             src = fh.read()
-        self.assertIn("https://andreymusic.pages.dev/", src)
+        self.assertIn("https://cismamusic.pages.dev/", src)
         self.assertIn('CLASS="CismaMusic"', src)
         self.assertIn("/cisma-music", src)          # perfil separado do Cisma AI
         self.assertNotIn("cisma-ai", src)
