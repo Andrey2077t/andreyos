@@ -160,7 +160,7 @@ Dois apps próprios do Cisma OS, já instalados e integrados ao sistema (menu, a
 - **Cisma AI** (`cisma-ai`): a IA do sistema, a um atalho de distância com `Super+Espaço`.
 - **Cisma Music** (`cisma-music`): player de música no menu *Som e Vídeo* e fixado no Menu Iniciar. A música continua tocando com a janela em segundo plano e as teclas de mídia funcionam.\n- **Cisma Share** (`cisma-share`): PWA para transferir arquivos entre PC e celular ou entre dois PCs. Abre numa janela própria e fica fixado no Menu Iniciar.
 
-Detalhes técnicos: cada app roda em Chromium em modo `--app`, com perfil próprio. O Cisma AI carrega https://andreyai.pages.dev/, o Cisma Music carrega https://andreymusic.pages.dev/ e o Cisma Share carrega https://andreyshare.pages.dev/. `CISMA_MUSIC_URL` troca o endereço do Cisma Music.
+Detalhes técnicos: cada app roda em Chromium em modo `--app`, com perfil próprio. O Cisma AI carrega https://andreyai.pages.dev/, o Cisma Music carrega https://cismamusic.pages.dev/ e o Cisma Share carrega https://andreyshare.pages.dev/. `CISMA_MUSIC_URL` troca o endereço do Cisma Music.
 
 ## Desinstalar Programas
 
