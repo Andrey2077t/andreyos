@@ -1,6 +1,6 @@
 {
-  "version": "1.0.2",
-  "previous": "1.0.1",
-  "notes": "fix",
-  "date": "2026-11-22T09:18:42Z"
+  "version": "1.0.3",
+  "previous": "1.0.2",
+  "notes": "Prepara o atualizador para a migração do repositório para cismaos",
+  "date": "2026-11-22T09:40:52Z"
 }
