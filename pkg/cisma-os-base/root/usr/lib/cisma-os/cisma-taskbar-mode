@@ -1,0 +1,143 @@
+#!/usr/bin/python3
+# -*- coding: utf-8 -*-
+"""Escolhe e restaura o estilo de barra do Cisma OS por usuário."""
+import os
+import signal
+import subprocess
+import sys
+import tempfile
+import time
+
+
+CONFIG = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.join(os.path.expanduser("~"), ".config")),
+                      "cisma-os", "taskbar-mode")
+RUNTIME = os.environ.get("XDG_RUNTIME_DIR", "/tmp")
+
+
+def current_mode():
+    try:
+        with open(CONFIG, encoding="utf-8") as f:
+            mode = f.read().strip()
+        return mode if mode in ("tabs", "pulse") else "tabs"
+    except OSError:
+        return "tabs"
+
+
+def save_mode(mode):
+    os.makedirs(os.path.dirname(CONFIG), mode=0o755, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix="taskbar-mode.", dir=os.path.dirname(CONFIG), text=True)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(mode + "\n")
+        os.chmod(tmp, 0o644)
+        os.replace(tmp, CONFIG)
+    finally:
+        try:
+            os.unlink(tmp)
+        except FileNotFoundError:
+            pass
+
+
+def stop_daemon(name):
+    path = os.path.join(RUNTIME, name + ".pid")
+    stopped = False
+    try:
+        with open(path, encoding="ascii") as f:
+            pid = int(f.read().strip())
+        if pid > 1 and pid != os.getpid():
+            with open("/proc/%d/cmdline" % pid, "rb") as f:
+                command_line = f.read()
+            if name.encode("ascii") in command_line:
+                os.kill(pid, signal.SIGTERM)
+                stopped = True
+    except (OSError, ValueError):
+        pass
+    # Compatibilidade com instâncias antigas iniciadas antes de existir o arquivo PID.
+    if not stopped:
+        for entry in os.scandir("/proc"):
+            if not entry.name.isdigit():
+                continue
+            try:
+                pid = int(entry.name)
+                if pid == os.getpid() or entry.stat().st_uid != os.getuid():
+                    continue
+                with open(entry.path + "/cmdline", "rb") as f:
+                    args = f.read().split(b"\0")
+                if any(name.encode("ascii") in arg for arg in args) and b"--daemon" in args:
+                    os.kill(pid, signal.SIGTERM)
+                    stopped = True
+            except (OSError, PermissionError, ProcessLookupError):
+                continue
+    try:
+        os.unlink(path)
+    except OSError:
+        pass
+    if stopped:
+        time.sleep(0.15)
+
+
+def start_daemon(command):
+    try:
+        subprocess.Popen([command, "--daemon"], stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                         start_new_session=True, close_fds=True)
+    except OSError as e:
+        print("cisma-taskbar-mode: não consegui iniciar %s: %s" % (command, e), file=sys.stderr)
+        return 1
+    return 0
+
+
+def apply(mode, persist=True):
+    if mode not in ("tabs", "pulse"):
+        print("cisma-taskbar-mode: use tabs ou pulse", file=sys.stderr)
+        return 2
+    # Encerra os serviços do estilo que está saindo antes de recarregar o painel.
+    stop_daemon("cisma-pulse")
+    stop_daemon("cisma-tabs")
+
+    layout = "cisma-pulse" if mode == "pulse" else "cisma"
+    try:
+        panel = subprocess.run(["mate-panel", "--reset", "--layout", layout],
+                               check=False, timeout=25, stdout=subprocess.DEVNULL,
+                               stderr=subprocess.PIPE, text=True)
+    except (OSError, subprocess.TimeoutExpired) as e:
+        print("cisma-taskbar-mode: não consegui recarregar o painel MATE: %s" % e, file=sys.stderr)
+        return 1
+    if panel.returncode != 0:
+        print("cisma-taskbar-mode: mate-panel --reset falhou: %s" % panel.stderr.strip(), file=sys.stderr)
+        return panel.returncode
+
+    # Grave antes de subir o daemon: ambos consultam esta preferência ao iniciar.
+    if persist:
+        save_mode(mode)
+    if mode == "pulse":
+        result = start_daemon("cisma-pulse")
+        if result != 0:
+            subprocess.run(["mate-panel", "--reset", "--layout", "cisma"], check=False,
+                           stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if persist:
+                save_mode("tabs")
+            start_daemon("cisma-tabs")
+            return result
+    else:
+        result = start_daemon("cisma-tabs")
+        if result != 0:
+            return result
+    return 0
+
+
+def main(argv):
+    if len(argv) == 2 and argv[1] == "--current":
+        print(current_mode())
+        return 0
+    if len(argv) == 2 and argv[1] == "--session":
+        # O modo padrão já está no layout MATE. Só aplicamos algo no login se Pulse foi escolhido.
+        return apply("pulse", persist=False) if current_mode() == "pulse" else 0
+    if len(argv) == 3 and argv[1] == "--set":
+        return apply(argv[2])
+    print("Uso: cisma-taskbar-mode --current | --session | --set tabs|pulse", file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))
