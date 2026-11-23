@@ -60,19 +60,30 @@ if command -v g++ >/dev/null 2>&1 && pkg-config --exists Qt6Widgets Qt6Svg Qt6Ne
     g++ -std=c++17 -O2 -fPIC -Wall -Wextra ui/cisma_code.cpp -o "$STAGE/usr/bin/cisma-code" \
         $(pkg-config --cflags --libs Qt6Widgets Qt6Network)
     strip "$STAGE/usr/bin/cisma-code" 2>/dev/null || true
+    echo "==> Compilando cisma-taskbar (Qt6)"
+    # shellcheck disable=SC2046
+    g++ -std=c++17 -O2 -fPIC -Wall -Wextra ui/cisma_taskbar.cpp -o "$STAGE/usr/bin/cisma-taskbar" \
+        $(pkg-config --cflags --libs Qt6Widgets)
+    strip "$STAGE/usr/bin/cisma-taskbar" 2>/dev/null || true
+    echo "==> Compilando cisma-pulse (Qt6/X11)"
+    # shellcheck disable=SC2046
+    g++ -std=c++17 -O2 -fPIC -Wall -Wextra ui/cisma_pulse.cpp -o "$STAGE/usr/bin/cisma-pulse" \
+        $(pkg-config --cflags --libs Qt6Widgets x11)
+    strip "$STAGE/usr/bin/cisma-pulse" 2>/dev/null || true
     ARCH="$(dpkg --print-architecture)"
     # t64: no Debian 13 algumas bibliotecas Qt6 ganharam esse sufixo; a alternativa deixa o apt escolher a que existir
     QTDEPS=", libqt6widgets6t64 | libqt6widgets6, libqt6svg6t64 | libqt6svg6, libqt6network6t64 | libqt6network6, qt6-qpa-plugins, libxcb-cursor0"
 elif [ "${CISMA_SKIP_QT:-0}" = 1 ]; then
-    echo "AVISO: sem Qt6 (qt6-base-dev qt6-svg-dev): pacote SEM a janela de desinstalar. So para testes." >&2
-    rm -f "$STAGE/usr/share/applications/cisma-uninstall.desktop" "$STAGE/usr/share/applications/cisma-code.desktop"
+    echo "AVISO: sem Qt6 (qt6-base-dev qt6-svg-dev): pacote sem as janelas Qt (desinstalador, editor e barras). So para testes." >&2
+    rm -f "$STAGE/usr/share/applications/cisma-uninstall.desktop" "$STAGE/usr/share/applications/cisma-code.desktop" \
+          "$STAGE/usr/share/applications/cisma-taskbar.desktop"
 else
     echo "ERRO: faltam g++ e Qt6 para compilar o cisma-uninstall. Instale: qt6-base-dev qt6-svg-dev pkg-config" >&2
     exit 1
 fi
 
 # permissoes explicitas (zip/Windows perdem o bit de execucao): tudo 644/755, e so os programas sao 755
-EXEC_LIB="apply-update user-sync sync-version session-setup apt-helper drivers-helper bluetooth-helper vfio-helper"
+EXEC_LIB="apply-update user-sync sync-version session-setup apt-helper drivers-helper bluetooth-helper vfio-helper cisma-taskbar-mode"
 find "$STAGE" -type d -exec chmod 755 {} +
 find "$STAGE" -type f -exec chmod 644 {} +
 chmod 755 "$STAGE"/usr/bin/cisma-*
