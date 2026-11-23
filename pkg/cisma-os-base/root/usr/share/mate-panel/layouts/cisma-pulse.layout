@@ -1,0 +1,25 @@
+# Barra superior do MATE sem a lista de janelas; Cisma Pulse ocupa o rodapé.
+[Toplevel top]
+expand=true
+orientation=top
+size=32
+
+[Object menu-bar]
+object-type=menu-bar
+toplevel-id=top
+position=0
+locked=true
+
+[Object show-desktop]
+object-type=applet
+applet-iid=WnckletFactory::ShowDesktopApplet
+toplevel-id=top
+position=0
+panel-right-stick=true
+
+[Object notification-area]
+object-type=applet
+applet-iid=NotificationAreaAppletFactory::NotificationArea
+toplevel-id=top
+position=224
+panel-right-stick=true
