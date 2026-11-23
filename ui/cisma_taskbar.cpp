@@ -495,38 +495,60 @@ private:
 
     void drawPulseBar(QPainter &p, const QRectF &bar) {
         drawBarBase(p, bar, 40);
+        const double cy = bar.center().y();
+        const double left = bar.left();
 
-        // detalhe diagonal à esquerda + linha vermelha inferior
-        p.save();
-        p.setClipPath(rounded(bar, 40));
-        QLinearGradient dg(bar.left(), 0, bar.left() + 130, 0);
-        dg.setColorAt(0, QColor(190, 0, 25, 190));
-        dg.setColorAt(1, QColor(190, 0, 25, 0));
-        QPolygonF poly;
-        poly << QPointF(bar.left(), bar.top()) << QPointF(bar.left() + 70, bar.top())
-             << QPointF(bar.left() + 8, bar.bottom()) << QPointF(bar.left(), bar.bottom());
+        // Grupo principal real do Pulse: Menu/C, Arquivos, Steam, Configurações e navegador.
+        drawLogo(p, QPointF(left + 48, cy), 42);
+        drawSeparator(p, left + 84, cy, 48);
+        drawFolder(p, QPointF(left + 124, cy + 1), 0.48, QColor(255, 30, 48), QColor(185, 0, 20));
         p.setPen(Qt::NoPen);
-        p.setBrush(dg);
-        p.drawPolygon(poly);
+        p.setBrush(QColor(35, 70, 125));
+        p.drawEllipse(QPointF(left + 177, cy), 20, 20);
+        p.setPen(QPen(QColor(225, 235, 250), 2));
+        p.setBrush(Qt::NoBrush);
+        p.drawEllipse(QPointF(left + 177, cy), 12, 12);
+        p.setPen(Qt::white);
+        p.setFont(makeFont(18, QFont::Bold));
+        p.drawText(QRectF(left + 165, cy - 13, 24, 26), Qt::AlignCenter, "S");
+        drawGear(p, QPointF(left + 229, cy), 25);
+        drawChrome(p, QPointF(left + 281, cy), 21);
 
-        QLinearGradient lg(bar.left(), 0, bar.right(), 0);
-        lg.setColorAt(0, QColor(220, 10, 30, 0));
-        lg.setColorAt(0.2, QColor(220, 10, 30, 200));
-        lg.setColorAt(0.8, QColor(220, 10, 30, 200));
-        lg.setColorAt(1, QColor(220, 10, 30, 0));
-        p.setPen(QPen(QBrush(lg), 3));
-        p.drawLine(QPointF(bar.left() + 20, bar.bottom() - 3), QPointF(bar.right() - 20, bar.bottom() - 3));
-        p.restore();
+        // Uma janela aberta aparece como botão com ícone e título; a bandeja fica à direita.
+        drawSeparator(p, left + 319, cy, 50);
+        QRectF task(left + 337, bar.top() + 12, 238, bar.height() - 24);
+        p.setPen(QPen(QColor(155, 35, 48, 160), 1.2));
+        p.setBrush(QColor(65, 5, 13, 185));
+        p.drawRoundedRect(task, 12, 12);
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(55, 105, 205));
+        p.drawRoundedRect(QRectF(task.left() + 13, cy - 11, 22, 22), 5, 5);
+        p.setPen(Qt::white);
+        p.setFont(makeFont(17, QFont::Normal));
+        p.drawText(QRectF(task.left() + 46, task.top(), task.width() - 54, task.height()),
+                   Qt::AlignVCenter | Qt::AlignLeft, "Janela aberta");
+        drawSeparator(p, bar.right() - 145, cy, 50);
 
-        double cy = bar.center().y();
-        drawLogo(p, QPointF(645, cy), 64);
-        drawSeparator(p, 750, cy, 54);
-        drawSearch(p, QPointF(836, cy));
-        drawFolder(p, QPointF(956, cy + 2), 0.68, QColor(250, 250, 250), QColor(205, 205, 205));
-        drawGear(p, QPointF(1075, cy), 36);
-        drawSeparator(p, 1153, cy, 66);
-        drawTrash(p, QPointF(1227, cy), 0.9);
-        drawSmallSquare(p, QPointF(1322, cy));
+        const double monitorX = bar.right() - 112;
+        p.setPen(QPen(QColor(235, 232, 232), 2));
+        p.setBrush(Qt::NoBrush);
+        p.drawRoundedRect(QRectF(monitorX - 11, cy - 12, 22, 16), 2, 2);
+        p.drawLine(QPointF(monitorX, cy + 4), QPointF(monitorX, cy + 9));
+        p.drawLine(QPointF(monitorX - 6, cy + 10), QPointF(monitorX + 6, cy + 10));
+        const double volumeX = bar.right() - 72;
+        QPolygonF speaker;
+        speaker << QPointF(volumeX - 9, cy - 5) << QPointF(volumeX - 4, cy - 5)
+                << QPointF(volumeX + 3, cy - 11) << QPointF(volumeX + 3, cy + 11)
+                << QPointF(volumeX - 4, cy + 5) << QPointF(volumeX - 9, cy + 5);
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(235, 232, 232));
+        p.drawPolygon(speaker);
+        p.setPen(QPen(QColor(235, 232, 232), 1.5, Qt::SolidLine, Qt::RoundCap));
+        p.setBrush(Qt::NoBrush);
+        p.drawArc(QRectF(volumeX, cy - 8, 12, 16), -50 * 16, 100 * 16);
+        p.setPen(QColor(245, 238, 238));
+        p.setFont(makeFont(15, QFont::DemiBold));
+        p.drawText(QRectF(bar.right() - 56, cy - 15, 48, 30), Qt::AlignCenter, "16:16");
     }
 
     // ---------------- rodapé ----------------
