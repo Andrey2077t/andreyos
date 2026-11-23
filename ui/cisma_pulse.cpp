@@ -101,10 +101,14 @@ public:
         }
 
         QScreen *screen = QGuiApplication::primaryScreen();
-        if (screen) setGeometry(screen->availableGeometry().x(), screen->availableGeometry().y()
-                                + screen->availableGeometry().height() - kBarHeight,
-                                screen->availableGeometry().width(), kBarHeight);
+        if (screen) {
+            const QRect bounds = screen->geometry();
+            setGeometry(bounds.x(), bounds.y() + bounds.height() - kBarHeight,
+                        bounds.width(), kBarHeight);
+        }
         else resize(1280, kBarHeight);
+        loadGroupPosition();
+        setToolTip("Segure o C estilizado e arraste para mover o grupo de ícones");
 
         auto *timer = new QTimer(this);
         connect(timer, &QTimer::timeout, this, [this] {
@@ -141,7 +145,8 @@ protected:
         taskRects_.clear();
 
         const int cy = height() / 2;
-        QRect startRect(18, 6, 56, height() - 12);
+        const int groupX = groupStartX();
+        QRect startRect(groupX, 6, 56, height() - 12);
         drawStartButton(p, startRect);
         int x = startRect.right() + 12;
         for (int i = 0; i < pins_.size(); ++i) {
@@ -201,8 +206,11 @@ protected:
     void mousePressEvent(QMouseEvent *event) override {
         const QPoint pos = event->position().toPoint();
         if (event->button() == Qt::LeftButton) {
-            if (QRect(18, 6, 56, height() - 12).contains(pos)) {
-        QProcess::startDetached("cisma-start-toggle", {});
+            if (QRect(groupStartX(), 6, 56, height() - 12).contains(pos)) {
+                draggingStart_ = true;
+                dragMoved_ = false;
+                dragPressX_ = pos.x();
+                setCursor(Qt::SizeHorCursor);
                 return;
             }
             if (pagePrevRect_.contains(pos) && taskPage_ > 0) { --taskPage_; update(); return; }
@@ -228,6 +236,28 @@ protected:
             }
         }
         if (event->button() == Qt::RightButton) showContextMenu(pos);
+    }
+
+    void mouseMoveEvent(QMouseEvent *event) override {
+        if (!draggingStart_ || !(event->buttons() & Qt::LeftButton)) return;
+        const int x = event->position().toPoint().x();
+        if (qAbs(x - dragPressX_) > 4) dragMoved_ = true;
+        if (dragMoved_) {
+            groupCenterRatio_ = qBound(0.0, static_cast<double>(x) / qMax(1, width()), 1.0);
+            update();
+        }
+    }
+
+    void mouseReleaseEvent(QMouseEvent *event) override {
+        if (event->button() != Qt::LeftButton || !draggingStart_) return;
+        draggingStart_ = false;
+        unsetCursor();
+        if (dragMoved_) {
+            saveGroupPosition();
+            update();
+        } else {
+            QProcess::startDetached("cisma-start-toggle", {});
+        }
     }
 
     void leaveEvent(QEvent *) override { update(); }
@@ -264,6 +294,35 @@ private:
     QRect pagePrevRect_;
     QRect pageNextRect_;
     int taskPage_ = 0;
+    double groupCenterRatio_ = 0.1125;
+    int dragPressX_ = 0;
+    bool draggingStart_ = false;
+    bool dragMoved_ = false;
+
+    int groupWidth() const {
+        return 56 + 12 + static_cast<int>(pins_.size()) * (kPinButton + kGap) + 13;
+    }
+
+    int groupStartX() const {
+        const int rightStart = width() - kRightArea;
+        const int maxStart = qMax(8, rightStart - groupWidth() - 80);
+        return qBound(8, qRound(groupCenterRatio_ * width()) - groupWidth() / 2, maxStart);
+    }
+
+    void loadGroupPosition() {
+        QFile file(configDir() + "/pulse-position");
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return;
+        bool ok = false;
+        const double value = QString::fromUtf8(file.readLine()).trimmed().toDouble(&ok);
+        if (ok) groupCenterRatio_ = qBound(0.0, value, 1.0);
+    }
+
+    void saveGroupPosition() const {
+        QDir().mkpath(configDir());
+        QFile file(configDir() + "/pulse-position");
+        if (file.open(QIODevice::WriteOnly | QIODevice::Truncate | QIODevice::Text))
+            file.write((QString::number(groupCenterRatio_, 'f', 4) + "\n").toUtf8());
+    }
 
     Atom atom(const char *name) { return XInternAtom(display_, name, False); }
 
