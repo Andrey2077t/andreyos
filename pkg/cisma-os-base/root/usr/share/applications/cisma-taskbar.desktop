@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Cisma Taskbar
+Comment=Escolha a barra padrão por abas ou a barra Cisma Pulse
+Exec=cisma-taskbar
+Icon=cisma-logo
+Terminal=false
+Categories=GTK;Settings;Utility;
+Keywords=barra;tarefas;abas;taskbar;pulse;
