@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Restaurar barra do Cisma OS
+Exec=cisma-taskbar-mode --session
+Terminal=false
+NoDisplay=true
+X-MATE-Autostart-enabled=true
+X-MATE-Autostart-Delay=2
