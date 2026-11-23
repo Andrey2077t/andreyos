@@ -5,4 +5,4 @@ Exec=cisma-tabs --daemon
 Terminal=false
 NoDisplay=true
 X-MATE-Autostart-enabled=true
-X-MATE-Autostart-Delay=2
+X-MATE-Autostart-Delay=8
