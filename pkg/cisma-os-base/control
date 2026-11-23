@@ -11,7 +11,7 @@ Recommends: fonts-dejavu-core, python3-pyflakes, git, plymouth, pulseaudio-modul
 Suggests: umu-launcher, qemu-system-x86, libvirt-daemon-system, virt-manager, ovmf
 Installed-Size: @SIZE@
 Description: Identidade visual e atualizador do Cisma OS
- Paineis (barra superior e dock), icones vermelhos, wallpaper, tema Plymouth,
+ Paineis (barra superior e dock), seletor de estilo Cisma Taskbar e barra alternativa Cisma Pulse, icones vermelhos, wallpaper, tema Plymouth,
  branding do instalador, conky, as janelas "Desinstalar Programas" e Display de volume (Qt6), além do atualizador
  "cisma-update", que busca novas versoes no repositorio apt do projeto (GitHub Pages). Tambem traz o
  suporte a compactar/extrair arquivos (Engrampa), o editor de codigo Cisma Code (Qt6), os aplicativos Cisma Music e Cisma Share, os Perfis de Sessão (Diário, Focus, Competitive e Dev) e o "Executar com Proton" (cisma-exe),
