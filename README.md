@@ -29,9 +29,20 @@ Menos ruído.
 
 Mais controle.
 
+## Barras de tarefas: Cisma Taskbar e Cisma Pulse
+
+O **Cisma Taskbar** (no Menu Iniciar, em *Configurações*) permite escolher entre dois estilos e lembra a escolha por usuário:
+
+- **Padrão por abas:** mantém a barra superior do MATE com as janelas abertas como abas e o dock transparente embaixo. `Ctrl+1` a `Ctrl+9` continuam disponíveis depois de clicar na barra.
+- **Cisma Pulse:** troca para uma barra inferior própria, com Menu Iniciar, aplicativos fixados, janelas abertas e relógio. Janelas de aplicativos fixados ficam agrupadas no ícone; as outras têm botões próprios e navegação quando não couberem todas na tela. Clique num botão para alternar para a janela; clique de novo na janela ativa para minimizá-la. O botão direito permite minimizar/fechar janelas e fixar ou desafixar aplicativos. Monitor abre as configurações de tela e volume alterna o mudo.
+
+O Pulse lê a lista de janelas do gerenciador MATE por X11/EWMH. Os atalhos fixados ficam em `~/.config/cisma-os/pulse-pins`; o estilo escolhido fica em `~/.config/cisma-os/taskbar-mode`. A área de notificação permanece no painel superior. Se o Pulse não iniciar ao trocar de estilo, o seletor restaura o painel padrão. Para voltar, abra o Cisma Taskbar ou use *Voltar à barra por abas* no menu de contexto do Pulse.
+
+O código do seletor e da barra é `ui/cisma_taskbar.cpp` e `ui/cisma_pulse.cpp`. Ambos são compilados com Qt6; o Pulse também usa X11. A seleção é restaurada no próximo login.
+
 ## Identidade: tudo vira aba
 
-O diferencial visual do Cisma OS é que **cada janela aberta aparece como uma aba**, igual num navegador. Quem vem do Windows ou do Chrome já tem o reflexo de "aba = janela", então não precisa aprender nada.
+No estilo padrão, o diferencial visual do Cisma OS é que **cada janela aberta aparece como uma aba**, igual num navegador. O Cisma Pulse oferece o estilo alternativo de botões de janelas, semelhante à barra do Windows. Quem vem do Windows ou do Chrome já tem o reflexo de "aba = janela", então não precisa aprender nada.
 
 - **Barra superior em abas:** apps abertos (Discord, Chrome, Cisma Music, o que for) ficam lado a lado no topo, como abas de navegador.
 - **Barra de título vermelha:** com os botões de minimizar, maximizar e fechar à direita, combinando com o tema vermelho/preto do sistema e dos apps próprios.
@@ -45,7 +56,7 @@ O diferencial visual do Cisma OS é que **cada janela aberta aparece como uma ab
   --transparent on|off | --size N`. As configurações ficam no mate-panel (gsettings), sem precisar de root. O fundo padrão é aplicado uma
   vez por usuário (`session-setup`, nível 10); depois disso a escolha é sua.
 - **Roda do mouse rolando sozinha:** abra *Corrigir roda do mouse* no Menu Iniciar. Escolha o dispositivo e bloqueie a rolagem vertical; o ponteiro e os cliques seguem funcionando. *Restaurar roda* desfaz a alteração. O bloqueio fica salvo por dispositivo e reaplica no próximo login; ele contorna eventos involuntários, não repara o componente físico.
-- **Apps exclusivos:** o **Cisma AI**, o **Cisma Music** e o **Cisma Share** são apps integrados ao Cisma OS. Abrem em janelas próprias e entram na barra superior como qualquer outro programa (veja a seção abaixo).
+- **Apps exclusivos:** o **Cisma AI**, o **Cisma Music** e o **Cisma Share** são apps integrados ao Cisma OS. Abrem em janelas próprias e entram na barra ativa como qualquer outro programa (veja a seção abaixo).
 
 Por baixo é o MATE: a lista de janelas do painel, estilizada para parecer abas. O diferencial não é uma tecnologia nova, e sim a decisão de design aplicada de forma consistente no sistema todo (painel, barra de título, dock e os apps próprios como Cisma Music, display de volume e desinstalador), para tudo ter a mesma cara.
 
