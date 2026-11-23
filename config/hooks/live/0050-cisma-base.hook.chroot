@@ -13,8 +13,11 @@ DEBIAN_FRONTEND=noninteractive dpkg -i "$DEB" || {
 
 dpkg-query -W -f='${Status}' cisma-os-base 2>/dev/null | grep -q 'install ok installed' || {
     echo "ERRO: cisma-os-base nao ficou instalado." >&2; exit 1; }
-for f in /usr/share/mate-panel/layouts/cisma.layout /usr/share/icons/Cisma/index.theme \
+for f in /usr/share/mate-panel/layouts/cisma.layout /usr/share/mate-panel/layouts/cisma-pulse.layout \
+         /usr/share/icons/Cisma/index.theme \
          /usr/share/backgrounds/cisma/cisma-os.png /usr/bin/cisma-update /usr/bin/cisma-uninstall /usr/bin/cisma-volume-osd \
+         /usr/bin/cisma-taskbar /usr/bin/cisma-pulse /usr/bin/cisma-taskbar-mode /usr/lib/cisma-os/cisma-taskbar-mode \
+         /usr/share/applications/cisma-taskbar.desktop \
          /usr/bin/cisma-music /usr/share/applications/cisma-music.desktop /usr/share/icons/Cisma/scalable/apps/cisma-music.svg \
          /usr/bin/cisma-code /usr/share/applications/cisma-code.desktop /usr/share/icons/Cisma/scalable/apps/cisma-code.svg \
          /usr/bin/cisma-share /usr/share/applications/cisma-share.desktop /usr/share/icons/Cisma/scalable/apps/cisma-share.svg \
