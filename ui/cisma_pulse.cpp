@@ -174,13 +174,13 @@ protected:
         pageNextRect_ = {};
         int first = 0;
         int visible = extra.size();
-        const bool overflow = !extra.isEmpty() && available / 50 < extra.size();
+        const bool overflow = !extra.isEmpty() && available / (kPinButton + kGap) < extra.size();
         if (overflow && available >= 58) {
             pagePrevRect_ = QRect(x, 13, 24, height() - 26);
             drawPageArrow(p, pagePrevRect_, "‹", taskPage_ > 0);
             x += 29;
             available -= 58;
-            visible = qMax(1, (available + kGap) / 50);
+            visible = qMax(1, (available + kGap) / (kPinButton + kGap));
             const int lastPage = (extra.size() - 1) / visible;
             taskPage_ = qBound(0, taskPage_, lastPage);
             first = taskPage_ * visible;
@@ -192,7 +192,7 @@ protected:
         const int taskAreaRight = overflow ? pageNextRect_.left() - 4 : rightStart;
         available = qMax(0, taskAreaRight - x - 4);
         const int count = qMin(visible, static_cast<int>(extra.size()) - first);
-        const int buttonWidth = count > 0 ? qBound(44, available / count - kGap, 210) : 0;
+        const int buttonWidth = count > 0 ? kPinButton : 0;
         for (int i = first; i < first + count && x + buttonWidth <= taskAreaRight; ++i) {
             QRect r(x, 8, buttonWidth, height() - 16);
             taskRects_.append({r, extra[i].id});
@@ -674,14 +674,8 @@ private:
             p.setBrush(w.active ? QColor(80, 4, 12, 205) : QColor(45, 5, 10, 175));
             p.drawPath(shape);
         }
-        if (!w.icon.isNull()) w.icon.paint(&p, QRect(r.left() + 9, r.center().y() - 16, 32, 32));
-        p.setPen(QColor(245, 240, 240));
-        QFont f("Inter");
-        f.setPixelSize(13);
-        p.setFont(f);
-        const QRect textRect(r.left() + 47, r.top() + 5, r.width() - 53, r.height() - 10);
-        p.drawText(textRect, Qt::AlignVCenter | Qt::AlignLeft,
-                   p.fontMetrics().elidedText(w.title, Qt::ElideRight, textRect.width()));
+        const QIcon icon = w.icon.isNull() ? QIcon::fromTheme("application-x-executable") : w.icon;
+        if (!icon.isNull()) icon.paint(&p, QRect(r.center().x() - 20, r.center().y() - 20, 40, 40));
         if (w.active) {
             p.setPen(QPen(kRed, 2));
             p.drawLine(r.left() + 12, r.bottom() - 3, r.right() - 12, r.bottom() - 3);
