@@ -13,6 +13,21 @@ configure)
     # versao do pacote -> os-release, issue, motd (sempre iguais ao que foi publicado)
     /usr/lib/cisma-os/sync-version || true
 
+    # GRUB: o titulo do menu de boot ("<NOME> GNU/Linux") fica GRAVADO em /boot/grub/grub.cfg
+    # na hora do update-grub. Trocar o os-release nao basta: sistemas instalados quando a marca
+    # ainda era "Andrey OS" continuam mostrando o nome antigo ate o grub.cfg ser regenerado.
+    # (Na ISO/chroot nao existe grub.cfg, entao nada acontece aqui.)
+    if [ -f /etc/default/grub ] && grep -q '^GRUB_DISTRIBUTOR=.*Andrey' /etc/default/grub 2>/dev/null; then
+        sed -i '/^GRUB_DISTRIBUTOR=/ s/Andrey OS/Cisma OS/g; /^GRUB_DISTRIBUTOR=/ s/Andrey/Cisma/g' /etc/default/grub || true
+    fi
+    if [ -f /boot/grub/grub.cfg ] && grep -q 'Andrey OS' /boot/grub/grub.cfg 2>/dev/null; then
+        if command -v update-grub >/dev/null 2>&1; then
+            update-grub >/dev/null 2>&1 || echo "cisma-os-base: aviso: update-grub falhou; rode 'sudo update-grub' manualmente" >&2
+        else
+            echo "cisma-os-base: aviso: update-grub ausente; titulo do GRUB nao foi atualizado" >&2
+        fi
+    fi
+
     # padroes do MATE (gschema override) e layout dos paineis
     glib-compile-schemas /usr/share/glib-2.0/schemas 2>/dev/null || echo "cisma-os-base: aviso: glib-compile-schemas falhou" >&2
 
