@@ -203,6 +203,27 @@ barra vermelha na parte de baixo da tela com o ícone de alto-falante, o slider 
 - Para ver o visual sem mexer no som: `cisma-volume-osd --window 70` · para um PNG: `QT_QPA_PLATFORM=offscreen cisma-volume-osd --grab a.png 70 0`.
 - **Build:** além de `qt6-base-dev qt6-svg-dev` usa o Qt6Network (já vem no `qt6-base-dev`).
 
+## Cisma OSD (desempenho em tempo real)
+
+Painel flutuante no visual vinho/vermelho do Cisma OS, com **CPU, GPU, RAM, armazenamento, rede e FPS**, relógio e data.
+Está no menu como *Cisma OSD* (binário `/usr/bin/cisma-osd`, código em `ui/cisma_osd.cpp` e `ui/cisma_osd_sensors.h`, Qt6).
+
+- **Abrir/fechar:** rode `cisma-osd` (ou o atalho do menu); rodar de novo com ele aberto **fecha** (instância única). Botão direito
+  no painel também fecha. Segure o botão esquerdo e arraste para mover; a posição fica em `~/.config/cisma-os/osd-position`.
+  Tamanho: `CISMA_OSD_SCALE=0.8 cisma-osd` (padrão 0.6). Fica por cima de tudo e não rouba o foco.
+- **Valores reais, sem root e sem programas extras** (atualiza a cada 1 s). O que não existir na máquina aparece como `--`:
+  - **CPU:** uso por `/proc/stat`; frequência por cpufreq; temperatura pelo hwmon (`coretemp`, `k10temp`, `zenpower`).
+  - **GPU:** AMD pelo `amdgpu` (uso, frequência e temperatura em `/sys/class/drm`); NVIDIA pelo `nvidia-smi` (driver proprietário);
+    Intel mostra só a frequência (o kernel não expõe o uso).
+  - **RAM, disco e rede:** `/proc/meminfo`, `statvfs("/")` (SSD/HDD/NVMe pelo `rotational`) e `/proc/net/dev`
+    (ignora `lo`, docker, veth, `br-` e `virbr`).
+  - **FPS:** o Linux não tem um jeito universal e seguro de medir o FPS de outro programa (e nada é injetado nos jogos). O OSD lê
+    um número de `$CISMA_OSD_FPS_FILE` (ou `$XDG_RUNTIME_DIR/cisma-osd-fps`) e só o usa se o arquivo foi escrito nos últimos 3 s;
+    quem mede (um script, uma camada do Vulkan) grava o valor lá. Sem isso mostra `--`.
+- `cisma-osd --dump` imprime os valores lidos (não precisa de tela) · `QT_QPA_PLATFORM=offscreen cisma-osd --grab a.png` grava um PNG
+  com valores de exemplo.
+- **Build:** `qt6-base-dev` (Qt6Widgets e Qt6Network); compila com `-pthread` por causa da leitura do `nvidia-smi` em outra thread.
+
 ## Cisma Code (editor de código)
 
 Editor de código próprio do Cisma OS, já instalado, com o mesmo tema vinho/vermelho do resto do sistema. Código em

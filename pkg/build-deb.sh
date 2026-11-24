@@ -54,6 +54,12 @@ if command -v g++ >/dev/null 2>&1 && pkg-config --exists Qt6Widgets Qt6Svg Qt6Ne
     g++ -std=c++17 -O2 -fPIC -Wall -Wextra ui/cisma_volume_osd.cpp -o "$STAGE/usr/bin/cisma-volume-osd" \
         $(pkg-config --cflags --libs Qt6Widgets Qt6Network)
     strip "$STAGE/usr/bin/cisma-volume-osd" 2>/dev/null || true
+    # Cisma OSD (painel de desempenho em tempo real; sensores lidos de /proc e /sys; -pthread: thread do nvidia-smi)
+    echo "==> Compilando cisma-osd (Qt6)"
+    # shellcheck disable=SC2046
+    g++ -std=c++17 -O2 -fPIC -pthread -Wall -Wextra ui/cisma_osd.cpp -o "$STAGE/usr/bin/cisma-osd" \
+        $(pkg-config --cflags --libs Qt6Widgets Qt6Network)
+    strip "$STAGE/usr/bin/cisma-osd" 2>/dev/null || true
     # Cisma Code (editor de codigo, Qt6 Widgets; usa Qt6Network para ser instancia unica)
     echo "==> Compilando cisma-code (Qt6)"
     # shellcheck disable=SC2046
@@ -76,7 +82,8 @@ if command -v g++ >/dev/null 2>&1 && pkg-config --exists Qt6Widgets Qt6Svg Qt6Ne
 elif [ "${CISMA_SKIP_QT:-0}" = 1 ]; then
     echo "AVISO: sem Qt6 (qt6-base-dev qt6-svg-dev): pacote sem as janelas Qt (desinstalador, editor e barras). So para testes." >&2
     rm -f "$STAGE/usr/share/applications/cisma-uninstall.desktop" "$STAGE/usr/share/applications/cisma-code.desktop" \
-          "$STAGE/usr/share/applications/cisma-taskbar.desktop"
+          "$STAGE/usr/share/applications/cisma-taskbar.desktop" \
+          "$STAGE/usr/share/applications/cisma-osd.desktop"
 else
     echo "ERRO: faltam g++ e Qt6 para compilar o cisma-uninstall. Instale: qt6-base-dev qt6-svg-dev pkg-config" >&2
     exit 1
