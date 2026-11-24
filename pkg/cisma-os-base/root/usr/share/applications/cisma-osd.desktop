@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Cisma OSD
+GenericName=Desempenho em tempo real
+Comment=Painel flutuante com CPU, GPU, RAM, disco, rede e FPS (abrir de novo fecha)
+Exec=cisma-osd
+Icon=cisma-monitor
+Terminal=false
+Categories=System;Monitor;
+StartupWMClass=cisma-osd
+Keywords=osd;desempenho;monitor;cpu;gpu;fps;ram;temperatura;cisma;

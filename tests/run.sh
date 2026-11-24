@@ -75,6 +75,41 @@ else
     echo "  (sem g++/Qt6Widgets/Qt6Network: pulando)"
 fi
 
+echo "== Cisma OSD: sensores (sem Qt)"
+if command -v g++ >/dev/null 2>&1; then
+    printf '#define CISMA_OSD_SENSORS_MAIN\n#include "ui/cisma_osd_sensors.h"\n' > "$WORK/osd_sensors.cpp"
+    g++ -std=c++17 -O2 -Wall -Wextra -Werror -pthread -I. "$WORK/osd_sensors.cpp" -o "$WORK/osd_sensors" \
+        && ok "cisma_osd_sensors.h compila sem avisos" || bad "cisma_osd_sensors.h nao compila"
+    if [ -x "$WORK/osd_sensors" ]; then
+        out="$("$WORK/osd_sensors")"
+        grep -q '^cpu_name=.' <<<"$out" && grep -Eq '^ram_total_gb=[1-9]' <<<"$out" && grep -Eq '^disk_total_gb=[1-9]' <<<"$out" \
+            && ok "lê CPU, RAM e disco reais" || bad "sensores sem CPU/RAM/disco: $out"
+        # FPS: so vale se o arquivo for recente (<= 3 s) e tiver um numero
+        echo 144 > "$WORK/fps"
+        CISMA_OSD_FPS_FILE="$WORK/fps" "$WORK/osd_sensors" | grep -q '^fps=144$' && ok "FPS lido do arquivo" || bad "FPS do arquivo"
+        touch -d '10 seconds ago' "$WORK/fps"
+        CISMA_OSD_FPS_FILE="$WORK/fps" "$WORK/osd_sensors" | grep -q '^fps=-1$' && ok "FPS antigo e ignorado" || bad "FPS antigo nao foi ignorado"
+    fi
+else
+    echo "  (sem g++: pulando)"
+fi
+
+echo "== Cisma OSD (Qt6)"
+if [ "$HAVE_QT" = 1 ] && pkg-config --exists Qt6Network 2>/dev/null; then
+    g++ -std=c++17 -O2 -fPIC -pthread -Wall -Wextra -Werror ui/cisma_osd.cpp -o "$WORK/cisma-osd" \
+        $(pkg-config --cflags --libs Qt6Widgets Qt6Network) && ok "cisma_osd.cpp compila sem avisos" \
+        || bad "cisma_osd.cpp nao compila"
+    "$WORK/cisma-osd" --dump | grep -q '^cpu_use=' && ok "--dump (sem tela)" || bad "--dump"
+    # desenha o painel sem tela (plugin offscreen); se o Qt desta maquina nao tiver o plugin, so avisa
+    if QT_QPA_PLATFORM=offscreen "$WORK/cisma-osd" --grab "$WORK/osd.png" 2>/dev/null; then
+        [ -s "$WORK/osd.png" ] && ok "desenho do painel" || bad "painel sem imagem"
+    else
+        echo "  (plugin offscreen do Qt indisponivel: pulando o desenho)"
+    fi
+else
+    echo "  (sem g++/Qt6Widgets/Qt6Network: pulando)"
+fi
+
 echo "== Cisma Code (Qt6)"
 if [ "$HAVE_QT" = 1 ] && pkg-config --exists Qt6Network 2>/dev/null; then
     g++ -std=c++17 -O2 -fPIC -Wall -Wextra -Werror ui/cisma_code.cpp -o "$WORK/cisma-code" \
@@ -111,10 +146,13 @@ if command -v dpkg-deb >/dev/null 2>&1; then
         grep -q 'libqt6widgets6t64 | libqt6widgets6' <(dpkg-deb -f "$DEB" Depends) && ok "Depends com as bibliotecas Qt6" || bad "Depends sem Qt6"
         grep -q 'libqt6network6t64 | libqt6network6' <(dpkg-deb -f "$DEB" Depends) && ok "Depends com Qt6Network" || bad "Depends sem Qt6Network"
         grep -Eq "^-rwxr-xr-x .* \./usr/bin/cisma-code\$" <<<"$listing" && ok "755 usr/bin/cisma-code" || bad "cisma-code ausente/sem permissao"
+        grep -Eq "^-rwxr-xr-x .* \./usr/bin/cisma-osd\$" <<<"$listing" && ok "755 usr/bin/cisma-osd" || bad "cisma-osd ausente/sem permissao"
+        grep -Eq "^-rw-r--r-- .* \./usr/share/applications/cisma-osd.desktop\$" <<<"$listing" && ok "644 cisma-osd.desktop" || bad "atalho do Cisma OSD"
         grep -Eq "^-rw-r--r-- .* \./usr/share/applications/cisma-code.desktop\$" <<<"$listing" && ok "644 cisma-code.desktop" || bad "atalho do Cisma Code"
     else
         grep -q 'cisma-uninstall.desktop' <<<"$listing" && bad "atalho do Desinstalar sem o programa" || ok "sem atalho orfao do Desinstalar"
         grep -q 'cisma-code.desktop' <<<"$listing" && bad "atalho do Cisma Code sem o programa" || ok "sem atalho orfao do Cisma Code"
+        grep -q 'cisma-osd.desktop' <<<"$listing" && bad "atalho do Cisma OSD sem o programa" || ok "sem atalho orfao do Cisma OSD"
     fi
     for d in engrampa zip unzip; do
         grep -Eq "(^|[ ,])$d([ ,]|\$)" <(dpkg-deb -f "$DEB" Depends) && ok "Depends tem $d" || bad "Depends sem $d (compactar/extrair)"
