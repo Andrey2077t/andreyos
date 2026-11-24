@@ -13,20 +13,6 @@ Description: Pacote de transicao para Cisma OS
  Este pacote vazio transfere atualizacoes antigas para cisma-os-base.
 
 Package: andrey-os-base
-Version: 1.0.1
-Architecture: all
-Depends: cisma-os-base (= 1.0.1)
-Filename: pool/andrey-os-base_1.0.1_all.deb
-Size: 536
-MD5sum: e24bd42bd63436e2b0c3fe836518559f
-SHA1: 85d12914b32d6a3c59a4cf6d805797d6049843e0
-SHA256: 9fb83f3ad05d32ffd331056d89183e46dfdd27e09071ef5839d2196941e80ecd
-Section: misc
-Priority: optional
-Description: Pacote de transicao para Cisma OS
- Este pacote vazio transfere atualizacoes antigas para cisma-os-base.
-
-Package: andrey-os-base
 Version: 1.0.2
 Architecture: all
 Depends: cisma-os-base (= 1.0.2)
@@ -138,6 +124,20 @@ Priority: optional
 Description: Pacote de transicao para Cisma OS
  Este pacote vazio transfere atualizacoes antigas para cisma-os-base.
 
+Package: andrey-os-base
+Version: 1.1
+Architecture: all
+Depends: cisma-os-base (= 1.1)
+Filename: pool/andrey-os-base_1.1_all.deb
+Size: 530
+MD5sum: f42c8eec391f50fd4736e9b24e058526
+SHA1: 7f3f676657a244f34923160c5c075b99ba8104e1
+SHA256: 550de540925a4911be0fd52be8e411796661650de5dd0497be1e015ce3b29f91
+Section: misc
+Priority: optional
+Description: Pacote de transicao para Cisma OS
+ Este pacote vazio transfere atualizacoes antigas para cisma-os-base.
+
 Package: cisma-os-base
 Version: 1.0
 Architecture: amd64
@@ -153,30 +153,6 @@ Size: 2247744
 MD5sum: d7bcce3871f4768f88a8edb454ee2c7d
 SHA1: 596129b931271af69a93c30f89cdb9f0d98b0b44
 SHA256: 806905840c629bf1e22b20c2646620e92c2031e4cf73119b934b98063c94d68d
-Section: misc
-Priority: optional
-Description: Identidade visual e atualizador do Cisma OS
- Paineis (barra superior e dock), icones vermelhos, wallpaper, tema Plymouth,
- branding do instalador, conky, as janelas "Desinstalar Programas" e Display de volume (Qt6), além do atualizador
- "cisma-update", que busca novas versoes no repositorio apt do projeto (GitHub Pages). Tambem traz o
- suporte a compactar/extrair arquivos (Engrampa), o editor de codigo Cisma Code (Qt6), os aplicativos Cisma Music e Cisma Share, os Perfis de Sessão (Diário, Focus, Competitive e Dev) e o "Executar com Proton" (cisma-exe),
- que abre .exe com duplo clique pelo umu-launcher + Proton-GE.
-
-Package: cisma-os-base
-Version: 1.0.1
-Architecture: amd64
-Maintainer: Cisma OS <cisma-os@localhost>
-Installed-Size: 5140
-Depends: mate-panel, mate-applets, libglib2.0-bin, pulseaudio-utils, desktop-file-utils, shared-mime-info, libgtk-3-bin, udisks2, gvfs, gvfs-backends, gvfs-fuse, curl, jq, zenity, pkexec, python3, python3-gi, gir1.2-gtk-3.0, gir1.2-wnck-3.0, librsvg2-common, xinput, chromium | chromium-browser | google-chrome-stable, wmctrl, bluez, blueman, engrampa, zip, unzip, 7zip | p7zip-full, libqt6widgets6t64 | libqt6widgets6, libqt6svg6t64 | libqt6svg6, libqt6network6t64 | libqt6network6, qt6-qpa-plugins, libxcb-cursor0
-Recommends: fonts-dejavu-core, python3-pyflakes, git, plymouth, pulseaudio-module-bluetooth, bluez-obexd, unrar | unrar-free, xz-utils, bzip2, zstd, icoutils, libnotify-bin
-Suggests: umu-launcher, qemu-system-x86, libvirt-daemon-system, virt-manager, ovmf
-Breaks: andrey-os-base (<< 0.6.0)
-Replaces: andrey-os-base (<< 0.6.0)
-Filename: pool/cisma-os-base_1.0.1_amd64.deb
-Size: 2247734
-MD5sum: bb2aaf4a3ee8acab86b8eca8eb3ea033
-SHA1: dc9ab7b8413dbb805397d0a53ecd586514071a76
-SHA256: 20d9bf11f6c603176a84ccaf868620b016e1cdefcef652248a45e6245bf621e1
 Section: misc
 Priority: optional
 Description: Identidade visual e atualizador do Cisma OS
@@ -369,6 +345,30 @@ Size: 2307338
 MD5sum: 39a1754a51c53ff03050269652180f12
 SHA1: 624d4ce8820a8af00f7f2f622a09ad36daaf3455
 SHA256: ae839d17f252746b085a2e34bcf9c4383bf4660881e4a1f32f09cd15feec92ed
+Section: misc
+Priority: optional
+Description: Identidade visual e atualizador do Cisma OS
+ Paineis (barra superior e dock), seletor de estilo Cisma Taskbar e barra alternativa Cisma Pulse, icones vermelhos, wallpaper, tema Plymouth,
+ branding do instalador, conky, as janelas "Desinstalar Programas" e Display de volume (Qt6), além do atualizador
+ "cisma-update", que busca novas versoes no repositorio apt do projeto (GitHub Pages). Tambem traz o
+ suporte a compactar/extrair arquivos (Engrampa), o editor de codigo Cisma Code (Qt6), os aplicativos Cisma Music e Cisma Share, os Perfis de Sessão (Diário, Focus, Competitive e Dev) e o "Executar com Proton" (cisma-exe),
+ que abre .exe com duplo clique pelo umu-launcher + Proton-GE.
+
+Package: cisma-os-base
+Version: 1.1
+Architecture: amd64
+Maintainer: Cisma OS <cisma-os@localhost>
+Installed-Size: 5524
+Depends: mate-panel, mate-applets, libglib2.0-bin, pulseaudio-utils, desktop-file-utils, shared-mime-info, libgtk-3-bin, udisks2, gvfs, gvfs-backends, gvfs-fuse, curl, jq, zenity, pkexec, python3, python3-gi, gir1.2-gtk-3.0, gir1.2-wnck-3.0, librsvg2-common, xinput, chromium | chromium-browser | google-chrome-stable, wmctrl, bluez, blueman, engrampa, zip, unzip, 7zip | p7zip-full, libqt6widgets6t64 | libqt6widgets6, libqt6svg6t64 | libqt6svg6, libqt6network6t64 | libqt6network6, qt6-qpa-plugins, libxcb-cursor0
+Recommends: fonts-dejavu-core, python3-pyflakes, git, plymouth, pulseaudio-module-bluetooth, bluez-obexd, unrar | unrar-free, xz-utils, bzip2, zstd, icoutils, libnotify-bin
+Suggests: umu-launcher, qemu-system-x86, libvirt-daemon-system, virt-manager, ovmf
+Breaks: andrey-os-base (<< 0.6.0)
+Replaces: andrey-os-base (<< 0.6.0)
+Filename: pool/cisma-os-base_1.1_amd64.deb
+Size: 2351952
+MD5sum: 47cc2fa374198d17f34cf7108e20ef20
+SHA1: 25fa27b9bc1cb6bb88377c997e7d1a80c597d633
+SHA256: cdc8f2339a994af1eec3b92b0dbc1bd9fb93b2460c5310ceaa3590ca5e2dc6b7
 Section: misc
 Priority: optional
 Description: Identidade visual e atualizador do Cisma OS

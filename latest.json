@@ -1,6 +1,6 @@
 {
-  "version": "1.0.9",
-  "previous": "1.0.8",
-  "notes": "FIX DO NOME ANTIGO APARECENDO NO GRUB",
-  "date": "2026-11-24T07:55:41Z"
+  "version": "1.1",
+  "previous": "1.0.9",
+  "notes": "Adicionado Cisma OSD para conferir em tempo real os FPS e os demais do seu PC",
+  "date": "2026-11-24T09:53:54Z"
 }
