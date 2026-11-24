@@ -1,6 +1,6 @@
 {
-  "version": "1.0.8",
-  "previous": "1.0.7",
-  "notes": "Cisma Pulse não mostrará mais o nome dos softwares além do ícone",
-  "date": "2026-11-24T07:28:42Z"
+  "version": "1.0.9",
+  "previous": "1.0.8",
+  "notes": "FIX DO NOME ANTIGO APARECENDO NO GRUB",
+  "date": "2026-11-24T07:55:41Z"
 }
